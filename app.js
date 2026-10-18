@@ -1,6 +1,8 @@
 const API_URL = 'https://blue-river-9145.ipostel-monitor.workers.dev';
 let currentUser = null;
 let currentToken = null;
+let chartEstados = null;
+let chartHoras = null;
 
 function enviarAScript(datos, callback) {
     fetch(API_URL, {
@@ -131,13 +133,65 @@ function logout() {
 }
 
 function cargarDashboard() {
-    enviarAScript({ accion: 'obtenerDashboard', token: currentToken }, function(data) {
+    enviarAScript({ accion: 'obtenerEstadisticas', token: currentToken }, function(data) {
         if (data.ok) {
             document.querySelectorAll('.stat-number')[0].textContent = data.data.totalPadron;
             document.querySelectorAll('.stat-number')[1].textContent = data.data.totalVotos;
+            const participacion = data.data.totalPadron > 0 ? ((data.data.totalVotos / data.data.totalPadron) * 100).toFixed(1) : 0;
+            document.querySelectorAll('.stat-number')[2].textContent = participacion + '%';
+            document.querySelectorAll('.stat-number')[3].textContent = data.data.totalNovedades;
+            
+            // Mostrar gráficos solo para directores/gerentes/observatorio
+            if (currentUser.rol !== 'JEFE_OPT') {
+                document.getElementById('charts-container').style.display = 'block';
+                dibujarGraficos(data.data);
+            }
         }
     });
     updateDashboardView();
+}
+
+function dibujarGraficos(data) {
+    // Gráfico de Barras por Estado
+    const estados = Object.keys(data.padronPorEstado).sort();
+    const padronData = estados.map(e => data.padronPorEstado[e] || 0);
+    const votosData = estados.map(e => data.votosPorEstado[e] || 0);
+    
+    if (chartEstados) chartEstados.destroy();
+    const ctx1 = document.getElementById('chartEstados').getContext('2d');
+    chartEstados = new Chart(ctx1, {
+        type: 'bar',
+        data: {
+            labels: estados,
+            datasets: [
+                { label: 'Padrón', data: padronData, backgroundColor: 'rgba(0, 51, 160, 0.5)' },
+                { label: 'Votos', data: votosData, backgroundColor: 'rgba(200, 16, 46, 0.8)' }
+            ]
+        },
+        options: { responsive: true, scales: { y: { beginAtZero: true } } }
+    });
+    
+    // Gráfico de Línea por Hora
+    const horas = Object.keys(data.votosPorHora).sort();
+    const votosHora = horas.map(h => data.votosPorHora[h]);
+    
+    if (chartHoras) chartHoras.destroy();
+    const ctx2 = document.getElementById('chartHoras').getContext('2d');
+    chartHoras = new Chart(ctx2, {
+        type: 'line',
+        data: {
+            labels: horas,
+            datasets: [{
+                label: 'Votos por Hora',
+                data: votosHora,
+                borderColor: 'rgba(200, 16, 46, 1)',
+                backgroundColor: 'rgba(200, 16, 46, 0.2)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: { responsive: true, scales: { y: { beginAtZero: true } } }
+    });
 }
 
 function updateDashboardView() {
@@ -235,11 +289,9 @@ function procesarLote() {
     
     if (cedulas.length === 0) { alert("No hay cédulas para procesar."); return; }
     
-    let procesadas = 0;
     let errores = [];
     let exitos = 0;
     
-    // Función recursiva para procesar una por una (evita problemas de concurrencia)
     function procesarSiguiente(index) {
         if (index >= cedulas.length) {
             alert(`Lote procesado: ${exitos} exitosos, ${errores.length} errores.\n\nErrores:\n${errores.join('\n')}`);
@@ -256,7 +308,6 @@ function procesarLote() {
             } else {
                 errores.push(cedula + ': ' + data.error);
             }
-            procesadas++;
             procesarSiguiente(index + 1);
         });
     }
@@ -272,123 +323,4 @@ function abrirModalNovedades() {
                 <h3 style="margin-bottom:15px; color:#dc3545;">Gestión de Novedades</h3>
                 <table style="width:100%; border-collapse:collapse; font-size:12px;" id="tabla-novedades">
                     <thead><tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">Cédula</th><th style="padding:5px; border:1px solid #ddd;">Nombre</th><th style="padding:5px; border:1px solid #ddd;">Reportado Por</th><th style="padding:5px; border:1px solid #ddd;">Commit</th><th style="padding:5px; border:1px solid #ddd;">Acciones</th></tr></thead>
-                    <tbody id="tbody-novedades"><tr><td colspan="5" style="text-align:center; padding:10px;">Cargando...</td></tr></tbody>
-                </table>
-                <button onclick="cerrarModal('modal-novedades')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button>
-            </div>
-        </div>`;
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
-    cargarNovedades();
-}
-
-function cargarNovedades() {
-    enviarAScript({ accion: 'obtenerNovedades', token: currentToken }, function(data) {
-        const tbody = document.getElementById('tbody-novedades');
-        if (data.ok && data.data.length > 0) {
-            tbody.innerHTML = '';
-            data.data.forEach(n => {
-                let tr = document.createElement('tr');
-                tr.innerHTML = `<td style="padding:5px; border:1px solid #ddd;">${n.cedula}</td><td style="padding:5px; border:1px solid #ddd;">${n.nombre}</td><td style="padding:5px; border:1px solid #ddd;">${n.reportadoPor}</td><td style="padding:5px; border:1px solid #ddd;">${n.commit}</td><td style="padding:5px; border:1px solid #ddd;"><button onclick="gestionarNovedad(${n.fila}, 'VALIDAR')" style="background:#28a745; color:white; border:none; padding:5px; border-radius:3px; cursor:pointer;">Validar</button><button onclick="gestionarNovedad(${n.fila}, 'INACTIVAR')" style="background:#dc3545; color:white; border:none; padding:5px; border-radius:3px; cursor:pointer;">Inactivar</button></td>`;
-                tbody.appendChild(tr);
-            });
-        } else { tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:10px;">No hay novedades pendientes.</td></tr>`; }
-    });
-}
-
-function gestionarNovedad(fila, accion) {
-    if (!confirm(`¿Está seguro de ${accion} esta novedad?`)) return;
-    enviarAScript({ accion: 'gestionarNovedad', token: currentToken, fila: fila, accionNovedad: accion }, function(data) {
-        if (data.ok) { alert(data.mensaje); cargarNovedades(); cargarDashboard(); }
-        else { alert("Error: " + data.error); }
-    });
-}
-
-// --- MODAL DE GERENTES ---
-function abrirModalGerentes() {
-    enviarAScript({ accion: 'obtenerGerentesPorDirector', token: currentToken }, function(data) {
-        let tabla = '<tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">Estado</th><th style="padding:5px; border:1px solid #ddd;">Clave</th></tr>';
-        if (data.ok && data.data.length > 0) {
-            data.data.forEach((estado, index) => {
-                const clave = String(1000 + index).slice(-4);
-                tabla += `<tr><td style="padding:5px; border:1px solid #ddd;">${estado}</td><td style="padding:5px; border:1px solid #ddd; font-weight:bold;">${clave}</td></tr>`;
-            });
-        } else {
-            tabla += '<tr><td colspan="2" style="text-align:center;">No hay estados asignados.</td></tr>';
-        }
-        let modalHTML = `<div id="modal-gerentes" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;"><div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:500px; max-height:80vh; overflow-y:auto;"><h3 style="margin-bottom:15px; color:#0033A0;">Gerentes de Estado y Claves</h3><p style="font-size:14px; margin-bottom:15px;">Entregue estas claves a sus Gerentes de Estado.</p><table style="width:100%; border-collapse:collapse; font-size:12px;">${tabla}</table><button onclick="cerrarModal('modal-gerentes')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button></div></div>`;
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
-    });
-}
-
-// --- MODAL DE OPTS ---
-function abrirModalOpts() {
-    enviarAScript({ accion: 'obtenerOptsPorEstado', token: currentToken, estado: currentUser.estado }, function(data) {
-        let tabla = '<tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">OPT</th><th style="padding:5px; border:1px solid #ddd;">Clave</th></tr>';
-        if (data.ok && data.data.length > 0) {
-            data.data.forEach((opt, index) => {
-                const clave = String(2000 + index).slice(-4);
-                tabla += `<tr><td style="padding:5px; border:1px solid #ddd;">${opt}</td><td style="padding:5px; border:1px solid #ddd; font-weight:bold;">${clave}</td></tr>`;
-            });
-        } else {
-            tabla += '<tr><td colspan="2" style="text-align:center;">No hay OPTs en este estado.</td></tr>';
-        }
-        let modalHTML = `<div id="modal-opts" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;"><div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:500px; max-height:80vh; overflow-y:auto;"><h3 style="margin-bottom:15px; color:#0033A0;">OPTs de ${currentUser.estado}</h3><p style="font-size:14px; margin-bottom:15px;">Entregue estas claves a sus Jefes de OPT.</p><table style="width:100%; border-collapse:collapse; font-size:12px;">${tabla}</table><button onclick="cerrarModal('modal-opts')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button></div></div>`;
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
-    });
-}
-
-function buscarEnPadron() {
-    const cedula = document.getElementById('voto-cedula').value;
-    if (!cedula || cedula.length < 5) return;
-    enviarAScript({ accion: 'consultarPadron', token: currentToken, cedula: cedula }, function(data) {
-        const infoDiv = document.getElementById('info-padron');
-        const grupoNombre = document.getElementById('grupo-nombre');
-        const grupoCommit = document.getElementById('grupo-commit');
-        if (data.ok && data.encontrado) {
-            infoDiv.style.display = 'block';
-            document.getElementById('info-nombre').textContent = data.datos.nombre;
-            document.getElementById('info-cargo').textContent = data.datos.cargo;
-            document.getElementById('info-ubicacion').textContent = data.datos.ubicacion;
-            grupoNombre.style.display = 'none'; grupoCommit.style.display = 'none';
-        } else {
-            infoDiv.style.display = 'none'; grupoNombre.style.display = 'block'; grupoCommit.style.display = 'block';
-        }
-    });
-}
-
-function guardarVotoReal() {
-    const cedula = document.getElementById('voto-cedula').value;
-    const nombre = document.getElementById('voto-nombre').value;
-    const commit = document.getElementById('voto-commit').value;
-    const fotoInput = document.getElementById('voto-foto');
-    if (!cedula) { alert("Debe ingresar una cédula."); return; }
-    const enviarDatos = (fotoUrl) => {
-        enviarAScript({ accion: 'cargarVoto', token: currentToken, cedula_votante: cedula, nombre_votante: nombre, commit_novedad: commit, foto_url: fotoUrl }, function(data) {
-            if (data.ok) { alert("✅ " + data.mensaje); cerrarModal('modal-carga'); cargarDashboard(); }
-            else {
-                if (data.requiereCommit) {
-                    document.getElementById('grupo-nombre').style.display = 'block';
-                    document.getElementById('grupo-commit').style.display = 'block';
-                    alert("⚠️ " + data.error);
-                } else { alert("Error: " + data.error); }
-            }
-        });
-    };
-    if (fotoInput.files.length > 0) {
-        const file = fotoInput.files[0];
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const base64Data = e.target.result.split(',')[1];
-            enviarAScript({ accion: 'subirFoto', token: currentToken, base64: base64Data, nombre: 'voto_' + cedula + '.jpg' }, function(dataFoto) {
-                if (dataFoto.ok) enviarDatos(dataFoto.url);
-                else { alert("Error al subir foto: " + dataFoto.error); enviarDatos(''); }
-            });
-        };
-        reader.readAsDataURL(file);
-    } else { enviarDatos(''); }
-}
-
-function cerrarModal(idModal) {
-    const modal = document.getElementById(idModal);
-    if (modal) modal.remove();
-}
+                    <tbody id="tbody-novedades"><tr><td colspan="5" style="text-align:center; padding:10px;">Cargando...</td></tr></
