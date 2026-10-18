@@ -54,10 +54,9 @@ async function handleLogin(event, tipo) {
 
         if (result.ok) {
             if (result.requiereCambio) {
-                // Si usa la clave inicial, forzar cambio
                 alert('Debe cambiar su clave inicial.');
                 showScreen('change-pass-screen');
-                // Guardamos el rol y el correo temporalmente para el cambio de clave
+                // Guardamos los datos temporalmente para el cambio de clave
                 sessionStorage.setItem('temp_rol', params.rol);
                 sessionStorage.setItem('temp_correo', params.correo || '');
             } else {
@@ -68,14 +67,18 @@ async function handleLogin(event, tipo) {
                 updateDashboardView();
             }
         } else {
-            alert(result.error || 'Error en el login.');
+            // Si el error es que debe registrarse, lo forzamos a registrar
+            if (result.error && result.error.includes('registrado')) {
+                alert('Su cuenta ya está registrada. Por favor, asegúrese de que la clave sea la correcta o contacte al Observatorio.');
+            } else {
+                alert(result.error || 'Error en el login.');
+            }
         }
     } catch (error) {
         alert('Error de conexión. Intente de nuevo.');
         console.error(error);
     }
 }
-
 async function handleChangePass(event) {
     event.preventDefault();
     const newPass = document.getElementById('new-pass').value;
