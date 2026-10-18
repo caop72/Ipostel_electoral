@@ -2,7 +2,27 @@ const API_URL = 'https://blue-river-9145.ipostel-monitor.workers.dev';
 let currentUser = null;
 let currentToken = null;
 let chartEstados = null;
+let chartDirecciones = null;
 let chartHoras = null;
+
+// Mapa de directores a estados (según Orden de Operaciones ODP 004-2026)
+const mapaDirectores = {
+    'CAPITAL': ['DISTRITO CAPITAL', 'MIRANDA', 'LA GUAIRA'],
+    'LARA': ['LARA'],
+    'ZULIA': ['ZULIA'],
+    'CARABOBO_SUCRE': ['CARABOBO', 'SUCRE'],
+    'ARAGUA': ['ARAGUA'],
+    'TRUJILLO_FALCON': ['TRUJILLO', 'FALCON'],
+    'MONAGAS_DELTA': ['MONAGAS', 'DELTA AMACURO'],
+    'BOLIVAR': ['BOLÍVAR'],
+    'TACHIRA_MERIDA': ['TÁCHIRA', 'MÉRIDA'],
+    'BARINAS': ['BARINAS'],
+    'COJEDES': ['COJEDES'],
+    'APURE_AMAZONAS': ['APURE', 'AMAZONAS'],
+    'PORTUGUESA_NUEVA_ESPARTA': ['PORTUGUESA', 'NUEVA ESPARTA'],
+    'ANZOATEGUI': ['ANZOÁTEGUI'],
+    'GUARICO_YARACUY': ['GUÁRICO', 'YARACUY']
+};
 
 function enviarAScript(datos, callback) {
     fetch(API_URL, {
@@ -132,9 +152,9 @@ function logout() {
     showScreen('login-screen');
 }
 
-function cargarDashboard() {
-    const filtroEstado = document.getElementById('filtro-estado') ? document.getElementById('filtro-estado').value : '';
-    const filtroDireccion = document.getElementById('filtro-direccion') ? document.getElementById('filtro-direccion').value : '';
+function cargarDashboard(filtros = {}) {
+    const filtroEstado = filtros.estado || '';
+    const filtroDireccion = filtros.direccion || '';
     
     enviarAScript({ 
         accion: 'obtenerEstadisticas', 
@@ -152,7 +172,7 @@ function cargarDashboard() {
             if (currentUser.rol !== 'JEFE_OPT') {
                 document.getElementById('filtros-container').style.display = 'block';
                 document.getElementById('charts-container').style.display = 'block';
-                llenarFiltros(data.data);
+                llenarFiltros(data.data, filtroEstado, filtroDireccion);
                 dibujarGraficos(data.data, filtroEstado, filtroDireccion);
             }
         }
@@ -160,23 +180,61 @@ function cargarDashboard() {
     updateDashboardView();
 }
 
-function llenarFiltros(data) {
-    // Llenar filtro de estados
+function llenarFiltros(data, filtroEstado, filtroDireccion) {
     const selectEstado = document.getElementById('filtro-estado');
-    if (selectEstado.options.length <= 1) { // Solo llenar si está vacío
-        const estados = Object.keys(data.padronPorEstado).sort();
-        estados.forEach(e => {
-            let o = document.createElement('option'); o.value = e; o.textContent = e; selectEstado.appendChild(o);
-        });
-    }
-    // Llenar filtro de direcciones (solo si no hay filtro de estado)
     const selectDireccion = document.getElementById('filtro-direccion');
-    if (selectDireccion.options.length <= 1) {
-        const direcciones = Object.keys(data.padronPorDireccion).sort();
-        direcciones.forEach(d => {
-            let o = document.createElement('option'); o.value = d; o.textContent = d; selectDireccion.appendChild(o);
+    
+    // 1. Llenar filtro de estados (solo si está vacío)
+    if (selectEstado.options.length <= 1) {
+        let estados = Object.keys(data.padronPorEstado).sort();
+        
+        // Si es DIRECTOR, solo mostrar sus estados asignados
+        if (currentUser.rol === 'DIRECTOR') {
+            const estadosAsignados = mapaDirectores[currentUser.estado] || [];
+            estados = estados.filter(e => estadosAsignados.includes(e));
+        }
+        
+        estados.forEach(e => {
+            let o = document.createElement('option');
+            o.value = e;
+            o.textContent = e;
+            selectEstado.appendChild(o);
         });
     }
+    
+    // 2. Llenar filtro de direcciones
+    while (selectDireccion.options.length > 1) {
+        selectDireccion.remove(1);
+    }
+    
+    let direcciones = Object.keys(data.padronPorDireccion).sort();
+    direcciones.forEach(d => {
+        let o = document.createElement('option');
+        o.value = d;
+        o.textContent = d;
+        selectDireccion.appendChild(o);
+    });
+}
+
+function actualizarDirecciones() {
+    const estado = document.getElementById('filtro-estado').value;
+    if (estado) {
+        cargarDashboard({ estado: estado });
+    } else {
+        cargarDashboard({});
+    }
+}
+
+function aplicarFiltros() {
+    const estado = document.getElementById('filtro-estado').value;
+    const direccion = document.getElementById('filtro-direccion').value;
+    cargarDashboard({ estado: estado, direccion: direccion });
+}
+
+function limpiarFiltros() {
+    document.getElementById('filtro-estado').value = '';
+    document.getElementById('filtro-direccion').value = '';
+    cargarDashboard({});
 }
 
 function dibujarGraficos(data, filtroEstado, filtroDireccion) {
@@ -198,7 +256,7 @@ function dibujarGraficos(data, filtroEstado, filtroDireccion) {
         });
     }
     
-    // Gráfico 2: Por Dirección (si hay filtro de estado o si no hay filtro)
+    // Gráfico 2: Por Dirección
     const direcciones = Object.keys(data.padronPorDireccion).sort();
     const padronDirData = direcciones.map(d => data.padronPorDireccion[d] || 0);
     const votosDirData = direcciones.map(d => data.votosPorDireccion[d] || 0);
@@ -209,7 +267,7 @@ function dibujarGraficos(data, filtroEstado, filtroDireccion) {
         type: 'bar',
         data: { labels: direcciones, datasets: [
             { label: 'Padrón', data: padronDirData, backgroundColor: 'rgba(0, 51, 160, 0.5)' },
-            { label: 'Votos', data: votosDirData, backgroundColor: 'rgba(200, 16, 46, 0.8)' }
+            { label: 'Votos', data: votosDireccionesData, backgroundColor: 'rgba(200, 16, 46, 0.8)' }
         ]},
         options: { responsive: true, scales: { y: { beginAtZero: true } } }
     });
@@ -479,17 +537,4 @@ function guardarVotoReal() {
 function cerrarModal(idModal) {
     const modal = document.getElementById(idModal);
     if (modal) modal.remove();
-}
-
-// --- FUNCIONES DE FILTRO ---
-function aplicarFiltros() {
-    const estado = document.getElementById('filtro-estado').value;
-    const direccion = document.getElementById('filtro-direccion').value;
-    cargarDashboard({ estado: estado, direccion: direccion });
-}
-
-function limpiarFiltros() {
-    document.getElementById('filtro-estado').value = '';
-    document.getElementById('filtro-direccion').value = '';
-    cargarDashboard({});
 }
