@@ -163,10 +163,35 @@ function cargarDashboard() {
             if (currentUser.rol !== 'JEFE_OPT') {
                 document.getElementById('charts-container').style.display = 'block';
                 dibujarGraficos(data.data);
+                cargarPorVerificar(); // <-- ESTA LÍNEA ES CLAVE
             }
         }
     });
     updateDashboardView();
+}
+
+function cargarPorVerificar() {
+    enviarAScript({ accion: 'obtenerCedulasPorVerificar', token: currentToken }, function(data) {
+        const container = document.getElementById('por-verificar-container');
+        const tbody = document.getElementById('tbody-por-verificar');
+        
+        if (data.ok && data.data.length > 0) {
+            container.style.display = 'block';
+            tbody.innerHTML = '';
+            data.data.forEach(item => {
+                let tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="padding:8px; border:1px solid #ddd;">${item.cedula}</td>
+                    <td style="padding:8px; border:1px solid #ddd;">${item.nombre}</td>
+                    <td style="padding:8px; border:1px solid #ddd;">${item.reportadoPor}</td>
+                    <td style="padding:8px; border:1px solid #ddd;">${item.fecha}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } else {
+            container.style.display = 'none';
+        }
+    });
 }
 
 function dibujarGraficos(data) {
