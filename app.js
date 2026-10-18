@@ -68,6 +68,7 @@ function cargarOptsPorEstado() {
         }
     });
 }
+
 function handleLogin(event, tipo) {
     event.preventDefault();
     let payload = { accion: 'login', tipo: tipo };
@@ -147,6 +148,7 @@ function updateDashboardView() {
             <p style="margin-bottom:20px; font-size:14px; text-align:center;">Jurisdicción: <b>${currentUser.estado || 'Nacional'}</b></p>
             <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
                 <button class="btn-primary" style="width:auto; padding:15px 30px;" onclick="abrirModalCargaVoto()">Cargar Voto</button>
+                <button class="btn-primary" style="width:auto; padding:15px 30px; background:#0033A0;" onclick="abrirModalCargaLote()">Carga por Lotes</button>
                 <button class="btn-primary" style="width:auto; padding:15px 30px; background:#0033A0;" onclick="abrirModalGerentes()">Gestionar Gerentes y Claves</button>
             </div>
         `;
@@ -156,6 +158,7 @@ function updateDashboardView() {
             <p style="margin-bottom:20px; font-size:14px; text-align:center;">Estado: <b>${currentUser.estado}</b></p>
             <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
                 <button class="btn-primary" style="width:auto; padding:15px 30px;" onclick="abrirModalCargaVoto()">Cargar Voto</button>
+                <button class="btn-primary" style="width:auto; padding:15px 30px; background:#0033A0;" onclick="abrirModalCargaLote()">Carga por Lotes</button>
                 <button class="btn-primary" style="width:auto; padding:15px 30px; background:#0033A0;" onclick="abrirModalOpts()">Ver OPTs de mi Estado</button>
             </div>
         `;
@@ -165,6 +168,7 @@ function updateDashboardView() {
             <p style="margin-bottom:20px; font-size:14px; text-align:center;">OPT: <b>${currentUser.estado}</b></p>
             <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
                 <button class="btn-primary" style="width:auto; padding:15px 30px;" onclick="abrirModalCargaVoto()">Cargar Voto</button>
+                <button class="btn-primary" style="width:auto; padding:15px 30px; background:#0033A0;" onclick="abrirModalCargaLote()">Carga por Lotes</button>
             </div>
         `;
     } else {
@@ -177,45 +181,102 @@ function updateDashboardView() {
     }
 }
 
-function abrirModalGerentes() {
-    enviarAScript({ accion: 'obtenerGerentesPorDirector', token: currentToken }, function(data) {
-        let tabla = '<tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">Estado</th><th style="padding:5px; border:1px solid #ddd;">Clave</th></tr>';
-        if (data.ok && data.data.length > 0) {
-            data.data.forEach((estado, index) => {
-                const clave = String(1000 + index).slice(-4);
-                tabla += `<tr><td style="padding:5px; border:1px solid #ddd;">${estado}</td><td style="padding:5px; border:1px solid #ddd; font-weight:bold;">${clave}</td></tr>`;
-            });
-        } else {
-            tabla += '<tr><td colspan="2" style="text-align:center;">No hay estados asignados.</td></tr>';
-        }
-        let modalHTML = `<div id="modal-gerentes" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;"><div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:500px; max-height:80vh; overflow-y:auto;"><h3 style="margin-bottom:15px; color:#0033A0;">Gerentes de Estado y Claves</h3><p style="font-size:14px; margin-bottom:15px;">Entregue estas claves a sus Gerentes de Estado.</p><table style="width:100%; border-collapse:collapse; font-size:12px;">${tabla}</table><button onclick="cerrarModal('modal-gerentes')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button></div></div>`;
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
-    });
-}
-
-function abrirModalOpts() {
-    enviarAScript({ accion: 'obtenerOptsPorEstado', token: currentToken, estado: currentUser.estado }, function(data) {
-        let tabla = '<tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">OPT</th><th style="padding:5px; border:1px solid #ddd;">Clave</th></tr>';
-        if (data.ok && data.data.length > 0) {
-            data.data.forEach((opt, index) => {
-                const clave = String(2000 + index).slice(-4);
-                tabla += `<tr><td style="padding:5px; border:1px solid #ddd;">${opt}</td><td style="padding:5px; border:1px solid #ddd; font-weight:bold;">${clave}</td></tr>`;
-            });
-        } else {
-            tabla += '<tr><td colspan="2" style="text-align:center;">No hay OPTs en este estado.</td></tr>';
-        }
-        let modalHTML = `<div id="modal-opts" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;"><div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:500px; max-height:80vh; overflow-y:auto;"><h3 style="margin-bottom:15px; color:#0033A0;">OPTs de ${currentUser.estado}</h3><p style="font-size:14px; margin-bottom:15px;">Entregue estas claves a sus Jefes de OPT.</p><table style="width:100%; border-collapse:collapse; font-size:12px;">${tabla}</table><button onclick="cerrarModal('modal-opts')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button></div></div>`;
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
-    });
-}
-
+// --- MODAL DE CARGA INDIVIDUAL ---
 function abrirModalCargaVoto() {
-    let modalHTML = `<div id="modal-carga" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;"><div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:400px;"><h3 style="margin-bottom:15px; color:#0033A0;">Registrar Voto</h3><div class="input-group"><label>Cédula del Votante:</label><input type="text" id="voto-cedula" placeholder="Ej: 14551754" onblur="buscarEnPadron()"></div><div id="info-padron" style="display:none; background:#e8f4f8; padding:10px; border-radius:5px; margin-bottom:15px; border-left:4px solid #0033A0;"><p style="margin:0; font-size:14px;"><b>Nombre:</b> <span id="info-nombre">-</span></p><p style="margin:0; font-size:14px;"><b>Cargo:</b> <span id="info-cargo">-</span></p><p style="margin:0; font-size:14px;"><b>Ubicación:</b> <span id="info-ubicacion">-</span></p></div><div class="input-group" id="grupo-nombre" style="display:none;"><label>Nombre Completo (No está en padrón):</label><input type="text" id="voto-nombre" placeholder="Nombre del votante"></div><div class="input-group" id="grupo-commit" style="display:none; background:#fff3cd; padding:10px; border-radius:5px; border:1px solid #ffeeba;"><label style="color:#856404;">⚠️ Novedad Detectada</label><p style="font-size:12px; color:#856404; margin-bottom:5px;">La cédula no está en el padrón. Escriba el motivo:</p><input type="text" id="voto-commit" placeholder="Justificación" style="width:100%; padding:5px;"></div><div class="input-group"><label>Foto (Opcional):</label><input type="file" id="voto-foto" accept="image/*" style="border:1px solid #ccc; padding:5px; width:100%; border-radius:5px;"></div><button class="btn-primary" onclick="guardarVotoReal()" style="margin-top:15px;">Guardar Voto</button><button onclick="cerrarModal('modal-carga')" style="width:100%; margin-top:10px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cancelar</button></div></div>`;
+    let modalHTML = `
+        <div id="modal-carga" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
+            <div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:400px;">
+                <h3 style="margin-bottom:15px; color:#0033A0;">Registrar Voto Individual</h3>
+                <div class="input-group"><label>Cédula del Votante:</label><input type="text" id="voto-cedula" placeholder="Ej: 14551754" onblur="buscarEnPadron()"></div>
+                <div id="info-padron" style="display:none; background:#e8f4f8; padding:10px; border-radius:5px; margin-bottom:15px; border-left:4px solid #0033A0;">
+                    <p style="margin:0; font-size:14px;"><b>Nombre:</b> <span id="info-nombre">-</span></p>
+                    <p style="margin:0; font-size:14px;"><b>Cargo:</b> <span id="info-cargo">-</span></p>
+                    <p style="margin:0; font-size:14px;"><b>Ubicación:</b> <span id="info-ubicacion">-</span></p>
+                </div>
+                <div class="input-group" id="grupo-nombre" style="display:none;"><label>Nombre Completo (No está en padrón):</label><input type="text" id="voto-nombre" placeholder="Nombre del votante"></div>
+                <div class="input-group" id="grupo-commit" style="display:none; background:#fff3cd; padding:10px; border-radius:5px; border:1px solid #ffeeba;">
+                    <label style="color:#856404;">⚠️ Novedad Detectada</label>
+                    <p style="font-size:12px; color:#856404; margin-bottom:5px;">La cédula no está en el padrón. Escriba el motivo:</p>
+                    <input type="text" id="voto-commit" placeholder="Justificación" style="width:100%; padding:5px;">
+                </div>
+                <div class="input-group"><label>Foto (Opcional):</label><input type="file" id="voto-foto" accept="image/*" style="border:1px solid #ccc; padding:5px; width:100%; border-radius:5px;"></div>
+                <button class="btn-primary" onclick="guardarVotoReal()" style="margin-top:15px;">Guardar Voto</button>
+                <button onclick="cerrarModal('modal-carga')" style="width:100%; margin-top:10px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cancelar</button>
+            </div>
+        </div>`;
     document.body.insertAdjacentHTML('beforeend', modalHTML);
 }
 
+// --- MODAL DE CARGA POR LOTES ---
+function abrirModalCargaLote() {
+    let modalHTML = `
+        <div id="modal-lote" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
+            <div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:500px;">
+                <h3 style="margin-bottom:15px; color:#0033A0;">Carga Masiva de Votos</h3>
+                <p style="font-size:14px; margin-bottom:15px;">Pegue una cédula por línea (o separadas por coma).</p>
+                <div class="input-group">
+                    <label>Cédulas:</label>
+                    <textarea id="lote-cedulas" rows="8" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:5px; font-size:14px;"></textarea>
+                </div>
+                <div class="input-group">
+                    <label>Foto (Opcional, se aplicará a todas):</label>
+                    <input type="file" id="lote-foto" accept="image/*" style="border:1px solid #ccc; padding:5px; width:100%; border-radius:5px;">
+                </div>
+                <button class="btn-primary" onclick="procesarLote()" style="margin-top:15px;">Procesar Lote</button>
+                <button onclick="cerrarModal('modal-lote')" style="width:100%; margin-top:10px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cancelar</button>
+            </div>
+        </div>`;
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+function procesarLote() {
+    const texto = document.getElementById('lote-cedulas').value;
+    const cedulas = texto.split(/[\n,]+/).map(c => c.trim()).filter(c => c.length > 0);
+    
+    if (cedulas.length === 0) { alert("No hay cédulas para procesar."); return; }
+    
+    let procesadas = 0;
+    let errores = [];
+    let exitos = 0;
+    
+    // Función recursiva para procesar una por una (evita problemas de concurrencia)
+    function procesarSiguiente(index) {
+        if (index >= cedulas.length) {
+            alert(`Lote procesado: ${exitos} exitosos, ${errores.length} errores.\n\nErrores:\n${errores.join('\n')}`);
+            cerrarModal('modal-lote');
+            cargarDashboard();
+            return;
+        }
+        
+        const cedula = cedulas[index];
+        
+        enviarAScript({ accion: 'cargarVoto', token: currentToken, cedula_votante: cedula, nombre_votante: '', commit_novedad: '', foto_url: '' }, function(data) {
+            if (data.ok) {
+                exitos++;
+            } else {
+                errores.push(cedula + ': ' + data.error);
+            }
+            procesadas++;
+            procesarSiguiente(index + 1);
+        });
+    }
+    
+    procesarSiguiente(0);
+}
+
+// --- MODAL DE NOVEDADES ---
 function abrirModalNovedades() {
-    let modalHTML = `<div id="modal-novedades" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center; z-index:1000;"><div style="background:white; padding:20px; border-radius:10px; width:95%; max-width:800px; max-height:90vh; overflow-y:auto;"><h3 style="margin-bottom:15px; color:#dc3545;">Gestión de Novedades</h3><table style="width:100%; border-collapse:collapse; font-size:12px;" id="tabla-novedades"><thead><tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">Cédula</th><th style="padding:5px; border:1px solid #ddd;">Nombre</th><th style="padding:5px; border:1px solid #ddd;">Reportado Por</th><th style="padding:5px; border:1px solid #ddd;">Commit</th><th style="padding:5px; border:1px solid #ddd;">Acciones</th></tr></thead><tbody id="tbody-novedades"><tr><td colspan="5" style="text-align:center; padding:10px;">Cargando...</td></tr></tbody></table><button onclick="cerrarModal('modal-novedades')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button></div></div>`;
+    let modalHTML = `
+        <div id="modal-novedades" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center; z-index:1000;">
+            <div style="background:white; padding:20px; border-radius:10px; width:95%; max-width:800px; max-height:90vh; overflow-y:auto;">
+                <h3 style="margin-bottom:15px; color:#dc3545;">Gestión de Novedades</h3>
+                <table style="width:100%; border-collapse:collapse; font-size:12px;" id="tabla-novedades">
+                    <thead><tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">Cédula</th><th style="padding:5px; border:1px solid #ddd;">Nombre</th><th style="padding:5px; border:1px solid #ddd;">Reportado Por</th><th style="padding:5px; border:1px solid #ddd;">Commit</th><th style="padding:5px; border:1px solid #ddd;">Acciones</th></tr></thead>
+                    <tbody id="tbody-novedades"><tr><td colspan="5" style="text-align:center; padding:10px;">Cargando...</td></tr></tbody>
+                </table>
+                <button onclick="cerrarModal('modal-novedades')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button>
+            </div>
+        </div>`;
     document.body.insertAdjacentHTML('beforeend', modalHTML);
     cargarNovedades();
 }
@@ -239,6 +300,40 @@ function gestionarNovedad(fila, accion) {
     enviarAScript({ accion: 'gestionarNovedad', token: currentToken, fila: fila, accionNovedad: accion }, function(data) {
         if (data.ok) { alert(data.mensaje); cargarNovedades(); cargarDashboard(); }
         else { alert("Error: " + data.error); }
+    });
+}
+
+// --- MODAL DE GERENTES ---
+function abrirModalGerentes() {
+    enviarAScript({ accion: 'obtenerGerentesPorDirector', token: currentToken }, function(data) {
+        let tabla = '<tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">Estado</th><th style="padding:5px; border:1px solid #ddd;">Clave</th></tr>';
+        if (data.ok && data.data.length > 0) {
+            data.data.forEach((estado, index) => {
+                const clave = String(1000 + index).slice(-4);
+                tabla += `<tr><td style="padding:5px; border:1px solid #ddd;">${estado}</td><td style="padding:5px; border:1px solid #ddd; font-weight:bold;">${clave}</td></tr>`;
+            });
+        } else {
+            tabla += '<tr><td colspan="2" style="text-align:center;">No hay estados asignados.</td></tr>';
+        }
+        let modalHTML = `<div id="modal-gerentes" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;"><div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:500px; max-height:80vh; overflow-y:auto;"><h3 style="margin-bottom:15px; color:#0033A0;">Gerentes de Estado y Claves</h3><p style="font-size:14px; margin-bottom:15px;">Entregue estas claves a sus Gerentes de Estado.</p><table style="width:100%; border-collapse:collapse; font-size:12px;">${tabla}</table><button onclick="cerrarModal('modal-gerentes')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button></div></div>`;
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+    });
+}
+
+// --- MODAL DE OPTS ---
+function abrirModalOpts() {
+    enviarAScript({ accion: 'obtenerOptsPorEstado', token: currentToken, estado: currentUser.estado }, function(data) {
+        let tabla = '<tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">OPT</th><th style="padding:5px; border:1px solid #ddd;">Clave</th></tr>';
+        if (data.ok && data.data.length > 0) {
+            data.data.forEach((opt, index) => {
+                const clave = String(2000 + index).slice(-4);
+                tabla += `<tr><td style="padding:5px; border:1px solid #ddd;">${opt}</td><td style="padding:5px; border:1px solid #ddd; font-weight:bold;">${clave}</td></tr>`;
+            });
+        } else {
+            tabla += '<tr><td colspan="2" style="text-align:center;">No hay OPTs en este estado.</td></tr>';
+        }
+        let modalHTML = `<div id="modal-opts" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;"><div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:500px; max-height:80vh; overflow-y:auto;"><h3 style="margin-bottom:15px; color:#0033A0;">OPTs de ${currentUser.estado}</h3><p style="font-size:14px; margin-bottom:15px;">Entregue estas claves a sus Jefes de OPT.</p><table style="width:100%; border-collapse:collapse; font-size:12px;">${tabla}</table><button onclick="cerrarModal('modal-opts')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button></div></div>`;
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
     });
 }
 
