@@ -2,16 +2,13 @@ const API_URL = 'https://blue-river-9145.ipostel-monitor.workers.dev';
 let currentUser = null;
 let currentToken = null;
 
-// Función que envía datos a Google usando un iframe oculto (sin CORS)
-function enviarAScript(datos, callback) {
-    fetch(API_URL, {
+// --- FUNCIÓN DE PETICIÓN (Usa fetch normal, el Worker maneja el CORS) ---
+function enviarAScript(datos) {
+    return fetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify(datos)
-    })
-    .then(res => res.json())
-    .then(data => callback(data))
-    .catch(err => callback({ ok: false, error: 'Error de conexión: ' + err.message }));
+    }).then(res => res.json());
 }
 
 // --- UI Y PESTAÑAS ---
@@ -33,7 +30,8 @@ function cargarOpcionesOPT() {
     const select = document.getElementById('opt-seleccion');
     if (select.options.length > 1) return;
 
-    enviarAScript({ accion: 'obtenerOPTs' }, function(data) {
+    enviarAScript({ accion: 'obtenerOPTs' })
+    .then(data => {
         if (data.ok) {
             data.data.forEach(opt => {
                 let option = document.createElement('option');
@@ -42,7 +40,7 @@ function cargarOpcionesOPT() {
                 select.appendChild(option);
             });
         }
-    });
+    }).catch(e => console.log("Error OPTs:", e));
 }
 
 // --- LOGIN ---
@@ -62,7 +60,8 @@ function handleLogin(event, tipo) {
         payload.clave = document.getElementById('pass-opt').value;
     }
 
-    enviarAScript(payload, function(data) {
+    enviarAScript(payload)
+    .then(data => {
         if (data.ok && data.requiereCambio) {
             currentUser = { rol: payload.rol, nombre: payload.correo || payload.rol, estado: payload.rol };
             currentUser.correo = data.correo || payload.correo;
@@ -74,35 +73,29 @@ function handleLogin(event, tipo) {
         } else {
             alert('Error: ' + data.error);
         }
-    });
+    })
+    .catch(err => alert("Error de conexión: " + err.message));
 }
 
+// --- CAMBIO DE CLAVE ---
 function handleChangePass(event) {
     event.preventDefault();
     const newPass = document.getElementById('new-pass').value;
     if (newPass.length === 4 && !isNaN(newPass)) {
-        enviarAScript({ accion: 'cambiarClave', correo: currentUser.correo, nuevaClave: newPass }, function(data) {
+        enviarAScript({ accion: 'cambiarClave', correo: currentUser.correo, nuevaClave: newPass })
+        .then(data => {
             if (data.ok) {
                 alert('Clave guardada correctamente.');
-                // Reintentar login
                 let loginPayload = { accion: 'login', tipo: currentUser.rol === 'DIRECTOR' ? 'director' : (currentUser.rol === 'JEFE_OPT' ? 'opt' : 'altos'), correo: currentUser.correo, rol: currentUser.estado, clave: newPass };
-                enviarAScript(loginPayload, function(data2) {
-                    if (data2.ok) {
-                        currentToken = data2.token;
-                        currentUser = data2.usuario;
-                        loginSuccess();
-                    } else {
-                        alert('Error al iniciar sesión.');
-                        logout();
-                    }
+                enviarAScript(loginPayload)
+                .then(data2 => {
+                    if (data2.ok) { currentToken = data2.token; currentUser = data2.usuario; loginSuccess(); }
+                    else { alert('Error al iniciar sesión.'); logout(); }
                 });
-            } else {
-                alert('Error al guardar clave: ' + data.error);
-            }
-        });
-    } else {
-        alert('La clave debe tener 4 dígitos.');
-    }
+            } else { alert('Error al guardar clave: ' + data.error); }
+        })
+        .catch(err => alert("Error de conexión: " + err.message));
+    } else { alert('La clave debe tener 4 dígitos.'); }
 }
 
 function loginSuccess() {
@@ -118,8 +111,10 @@ function logout() {
     showScreen('login-screen');
 }
 
+// --- DASHBOARD ---
 function cargarDashboard() {
-    enviarAScript({ accion: 'obtenerDashboard', token: currentToken }, function(data) {
+    enviarAScript({ accion: 'obtenerDashboard', token: currentToken })
+    .then(data => {
         if (data.ok) {
             document.querySelectorAll('.stat-number')[0].textContent = data.data.totalPadron;
             document.querySelectorAll('.stat-number')[1].textContent = data.data.totalVotos;
@@ -219,7 +214,8 @@ function abrirModalNovedades() {
 }
 
 function cargarNovedades() {
-    enviarAScript({ accion: 'obtenerNovedades', token: currentToken }, function(data) {
+    enviarAScript({ accion: 'obtenerNovedades', token: currentToken })
+    .then(data => {
         const tbody = document.getElementById('tbody-novedades');
         if (data.ok && data.data.length > 0) {
             tbody.innerHTML = '';
@@ -245,21 +241,18 @@ function cargarNovedades() {
 
 function gestionarNovedad(fila, accion) {
     if (!confirm(`¿Está seguro de ${accion} esta novedad?`)) return;
-    enviarAScript({ accion: 'gestionarNovedad', token: currentToken, fila: fila, accionNovedad: accion }, function(data) {
-        if (data.ok) {
-            alert(data.mensaje);
-            cargarNovedades();
-            cargarDashboard();
-        } else {
-            alert("Error: " + data.error);
-        }
+    enviarAScript({ accion: 'gestionarNovedad', token: currentToken, fila: fila, accionNovedad: accion })
+    .then(data => {
+        if (data.ok) { alert(data.mensaje); cargarNovedades(); cargarDashboard(); }
+        else { alert("Error: " + data.error); }
     });
 }
 
 function buscarEnPadron() {
     const cedula = document.getElementById('voto-cedula').value;
     if (!cedula || cedula.length < 5) return;
-    enviarAScript({ accion: 'consultarPadron', token: currentToken, cedula: cedula }, function(data) {
+    enviarAScript({ accion: 'consultarPadron', token: currentToken, cedula: cedula })
+    .then(data => {
         const infoDiv = document.getElementById('info-padron');
         const grupoNombre = document.getElementById('grupo-nombre');
         const grupoCommit = document.getElementById('grupo-commit');
@@ -286,19 +279,15 @@ function guardarVotoReal() {
     if (!cedula) { alert("Debe ingresar una cédula."); return; }
 
     const enviarDatos = (fotoUrl) => {
-        enviarAScript({ accion: 'cargarVoto', token: currentToken, cedula_votante: cedula, nombre_votante: nombre, commit_novedad: commit, foto_url: fotoUrl }, function(data) {
-            if (data.ok) {
-                alert("✅ " + data.mensaje);
-                cerrarModal('modal-carga');
-                cargarDashboard();
-            } else {
+        enviarAScript({ accion: 'cargarVoto', token: currentToken, cedula_votante: cedula, nombre_votante: nombre, commit_novedad: commit, foto_url: fotoUrl })
+        .then(data => {
+            if (data.ok) { alert("✅ " + data.mensaje); cerrarModal('modal-carga'); cargarDashboard(); }
+            else {
                 if (data.requiereCommit) {
                     document.getElementById('grupo-nombre').style.display = 'block';
                     document.getElementById('grupo-commit').style.display = 'block';
                     alert("⚠️ " + data.error);
-                } else {
-                    alert("Error: " + data.error);
-                }
+                } else { alert("Error: " + data.error); }
             }
         });
     };
@@ -308,15 +297,11 @@ function guardarVotoReal() {
         const reader = new FileReader();
         reader.onload = function(e) {
             const base64Data = e.target.result.split(',')[1];
-            enviarAScript({ accion: 'subirFoto', token: currentToken, base64: base64Data, nombre: 'voto_' + cedula + '.jpg' }, function(dataFoto) {
-                if (dataFoto.ok) enviarDatos(dataFoto.url);
-                else { alert("Error al subir foto: " + dataFoto.error); enviarDatos(''); }
-            });
+            enviarAScript({ accion: 'subirFoto', token: currentToken, base64: base64Data, nombre: 'voto_' + cedula + '.jpg' })
+            .then(dataFoto => { if (dataFoto.ok) enviarDatos(dataFoto.url); else { alert("Error al subir foto: " + dataFoto.error); enviarDatos(''); } });
         };
         reader.readAsDataURL(file);
-    } else {
-        enviarDatos('');
-    }
+    } else { enviarDatos(''); }
 }
 
 function abrirModalClaves() {
