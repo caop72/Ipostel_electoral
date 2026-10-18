@@ -234,7 +234,6 @@ function dibujarGraficos(data) {
         options: { responsive: true, scales: { y: { beginAtZero: true } } }
     });
 }
-
 function updateDashboardView() {
     const contentDiv = document.getElementById('role-content');
     if (currentUser.rol === 'DIRECTOR') {
