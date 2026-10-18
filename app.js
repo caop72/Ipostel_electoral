@@ -5,7 +5,6 @@ let chartEstados = null;
 let chartDirecciones = null;
 let chartHoras = null;
 
-// Mapa de directores a estados (según Orden de Operaciones ODP 004-2026)
 const mapaDirectores = {
     'CAPITAL': ['DISTRITO CAPITAL', 'MIRANDA', 'LA GUAIRA'],
     'LARA': ['LARA'],
@@ -158,7 +157,7 @@ function cargarDashboard(filtros = {}) {
     enviarAScript({ 
         accion: 'obtenerEstadisticas', 
         token: currentToken, 
-        filtroEstado: filtroEstado
+        filtroEstado: filtroEstado 
     }, function(data) {
         if (data.ok) {
             document.querySelectorAll('.stat-number')[0].textContent = data.data.totalPadron;
@@ -181,13 +180,11 @@ function cargarDashboard(filtros = {}) {
 function llenarFiltros(data, filtroEstado) {
     const selectEstado = document.getElementById('filtro-estado');
     
-    // Si es Gerente de Estado, solo mostrar su estado (fijado)
     if (currentUser.rol === 'GERENTE_ESTADO') {
         selectEstado.innerHTML = `<option value="${currentUser.estado}">${currentUser.estado}</option>`;
         return;
     }
     
-    // Si es Director, mostrar solo sus estados asignados
     if (currentUser.rol === 'DIRECTOR') {
         const estadosAsignados = mapaDirectores[currentUser.estado] || [];
         if (selectEstado.options.length <= 1) {
@@ -201,7 +198,6 @@ function llenarFiltros(data, filtroEstado) {
         return;
     }
     
-    // Si es Observatorio, mostrar todos
     if (selectEstado.options.length <= 1) {
         const estados = Object.keys(data.padronPorEstado).sort();
         estados.forEach(e => {
@@ -224,12 +220,11 @@ function limpiarFiltros() {
 }
 
 function dibujarGraficos(data, filtroEstado) {
-    // Si hay filtro de estado, solo mostrar ese estado en el gráfico
+    // Gráfico 1: Por Estado
     let estados = Object.keys(data.padronPorEstado).sort();
     if (filtroEstado) {
         estados = [filtroEstado];
     }
-    
     const padronData = estados.map(e => data.padronPorEstado[e] || 0);
     const votosData = estados.map(e => data.votosPorEstado[e] || 0);
     
@@ -244,42 +239,6 @@ function dibujarGraficos(data, filtroEstado) {
         options: { responsive: true, scales: { y: { beginAtZero: true } } }
     });
     
-    // Curva por Hora (sin cambios)
-    const horas = Object.keys(data.votosPorHora).sort();
-    const votosHora = horas.map(h => data.votosPorHora[h]);
-    
-    if (chartHoras) chartHoras.destroy();
-    const ctx3 = document.getElementById('chartHoras').getContext('2d');
-    chartHoras = new Chart(ctx3, {
-        type: 'line',
-        data: { labels: horas, datasets: [{
-            label: 'Votos por Hora', data: votosHora,
-            borderColor: 'rgba(200, 16, 46, 1)', backgroundColor: 'rgba(200, 16, 46, 0.2)',
-            fill: true, tension: 0.4
-        }]},
-        options: { responsive: true, scales: { y: { beginAtZero: true } } }
-    });
-}
-
-function dibujarGraficos(data, filtroEstado, filtroDireccion) {
-    // Gráfico 1: Por Estado (si no hay filtro de estado)
-    if (!filtroEstado) {
-        const estados = Object.keys(data.padronPorEstado).sort();
-        const padronData = estados.map(e => data.padronPorEstado[e] || 0);
-        const votosData = estados.map(e => data.votosPorEstado[e] || 0);
-        
-        if (chartEstados) chartEstados.destroy();
-        const ctx1 = document.getElementById('chartEstados').getContext('2d');
-        chartEstados = new Chart(ctx1, {
-            type: 'bar',
-            data: { labels: estados, datasets: [
-                { label: 'Padrón', data: padronData, backgroundColor: 'rgba(0, 51, 160, 0.5)' },
-                { label: 'Votos', data: votosData, backgroundColor: 'rgba(200, 16, 46, 0.8)' }
-            ]},
-            options: { responsive: true, scales: { y: { beginAtZero: true } } }
-        });
-    }
-    
     // Gráfico 2: Por Dirección
     const direcciones = Object.keys(data.padronPorDireccion).sort();
     const padronDirData = direcciones.map(d => data.padronPorDireccion[d] || 0);
@@ -291,7 +250,7 @@ function dibujarGraficos(data, filtroEstado, filtroDireccion) {
         type: 'bar',
         data: { labels: direcciones, datasets: [
             { label: 'Padrón', data: padronDirData, backgroundColor: 'rgba(0, 51, 160, 0.5)' },
-            { label: 'Votos', data: votosDireccionesData, backgroundColor: 'rgba(200, 16, 46, 0.8)' }
+            { label: 'Votos', data: votosDirData, backgroundColor: 'rgba(200, 16, 46, 0.8)' }
         ]},
         options: { responsive: true, scales: { y: { beginAtZero: true } } }
     });
@@ -345,7 +304,6 @@ function updateDashboardView() {
             </div>
         `;
     } else {
-        // OBSERVATORIO, PRESIDENCIA, DESPACHO
         contentDiv.innerHTML = `
             <h3 style="margin-bottom:15px; color:#0033A0; text-align:center;">Panel de ${currentUser.rol}</h3>
             <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
@@ -357,7 +315,6 @@ function updateDashboardView() {
     }
 }
 
-// --- MODAL DE CARGA INDIVIDUAL ---
 function abrirModalCargaVoto() {
     let modalHTML = `
         <div id="modal-carga" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
@@ -383,7 +340,6 @@ function abrirModalCargaVoto() {
     document.body.insertAdjacentHTML('beforeend', modalHTML);
 }
 
-// --- MODAL DE CARGA POR LOTES ---
 function abrirModalCargaLote() {
     let modalHTML = `
         <div id="modal-lote" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
@@ -437,7 +393,6 @@ function procesarLote() {
     procesarSiguiente(0);
 }
 
-// --- MODAL DE NOVEDADES ---
 function abrirModalNovedades() {
     let modalHTML = `
         <div id="modal-novedades" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center; z-index:1000;">
@@ -476,7 +431,6 @@ function gestionarNovedad(fila, accion) {
     });
 }
 
-// --- MODAL DE GERENTES ---
 function abrirModalGerentes() {
     enviarAScript({ accion: 'obtenerGerentesPorDirector', token: currentToken }, function(data) {
         let tabla = '<tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">Estado</th><th style="padding:5px; border:1px solid #ddd;">Clave</th></tr>';
@@ -493,7 +447,6 @@ function abrirModalGerentes() {
     });
 }
 
-// --- MODAL DE OPTS ---
 function abrirModalOpts() {
     enviarAScript({ accion: 'obtenerOptsPorEstado', token: currentToken, estado: currentUser.estado }, function(data) {
         let tabla = '<tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">OPT</th><th style="padding:5px; border:1px solid #ddd;">Clave</th></tr>';
