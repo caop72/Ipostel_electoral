@@ -57,7 +57,7 @@ function cargarEstadosParaOPT() {
     });
 }
 
-// --- FUNCIÓN MEJORADA: Si falla el Worker, usa lista local para OPTs comunes ---
+// --- CARGA DE OPTS POR ESTADO ---
 function cargarOptsPorEstado() {
     const estado = document.getElementById('estado-opt').value;
     const selectOpt = document.getElementById('opt-seleccion');
@@ -68,10 +68,9 @@ function cargarOptsPorEstado() {
         return;
     }
 
-    // Intentamos con el Worker
     enviarAScript({ accion: 'obtenerOptsPorEstado', estado: estado }, function(data) {
-        if (data.ok && data.data && data.data.length > 0) {
-            selectOpt.innerHTML = '<option value="">-- Seleccione su OPT --</option>';
+        selectOpt.innerHTML = '<option value="">-- Seleccione su OPT --</option>';
+        if (data.ok && data.data.length > 0) {
             data.data.forEach(opt => {
                 let o = document.createElement('option');
                 o.value = opt;
@@ -79,29 +78,7 @@ function cargarOptsPorEstado() {
                 selectOpt.appendChild(o);
             });
         } else {
-            // Si el Worker falla o no hay datos, cargamos una lista de respaldo para estados conocidos
-            selectOpt.innerHTML = '<option value="">-- Seleccione su OPT --</option>';
-            const respaldo = {
-                'ZULIA': ['OFICINA POSTAL MARACAIBO', 'OFICINA POSTAL CABIMAS', 'OFICINA POSTAL CIUDAD OJEDA', 'OFICINA POSTAL MENE GRANDE'],
-                'DISTRITO CAPITAL': ['OFICINA POSTAL CARACAS', 'OFICINA POSTAL PETARE', 'OFICINA POSTAL CHACAO'],
-                'MIRANDA': ['OFICINA POSTAL LOS TEQUES', 'OFICINA POSTAL GUARENAS', 'OFICINA POSTAL GUATIRE'],
-                'LARA': ['OFICINA POSTAL BARQUISIMETO', 'OFICINA POSTAL CARORA', 'OFICINA POSTAL QUIBOR'],
-                'CARABOBO': ['OFICINA POSTAL VALENCIA', 'OFICINA POSTAL PUERTO CABELLO', 'OFICINA POSTAL GUACARA'],
-                'ARAGUA': ['OFICINA POSTAL MARACAY', 'OFICINA POSTAL LA VICTORIA', 'OFICINA POSTAL CAGUA'],
-                'TÁCHIRA': ['OFICINA POSTAL SAN CRISTOBAL', 'OFICINA POSTAL SAN ANTONIO', 'OFICINA POSTAL LA FRIA'],
-                'MÉRIDA': ['OFICINA POSTAL MERIDA', 'OFICINA POSTAL EJIDO', 'OFICINA POSTAL EL VIGIA']
-            };
-            if (respaldo[estado]) {
-                respaldo[estado].forEach(opt => {
-                    let o = document.createElement('option');
-                    o.value = opt;
-                    o.textContent = opt;
-                    selectOpt.appendChild(o);
-                });
-            } else {
-                // Si no hay respaldo, mostramos un mensaje
-                selectOpt.innerHTML = '<option value="">-- No hay OPTs en este Estado (Contacte a su Gerente) --</option>';
-            }
+            selectOpt.innerHTML = '<option value="">-- No hay OPTs en este Estado --</option>';
         }
     });
 }
