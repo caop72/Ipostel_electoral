@@ -86,19 +86,25 @@
                     <button type="submit" class="btn-primary">Ingresar</button>
                 </form>
 
-                <form id="form-jefes-opt" class="login-form" onsubmit="handleLogin(event, 'opt')">
-                    <div class="input-group">
-                        <label>Seleccione su OPT (Sede):</label>
-                        <select id="opt-seleccion" required>
-                            <option value="">-- Seleccione su OPT --</option>
-                        </select>
-                    </div>
-                    <div class="input-group">
-                        <label>Clave (Proporcionada por su Gerente):</label>
-                        <input type="password" id="pass-opt" placeholder="Ingrese su clave" required>
-                    </div>
-                    <button type="submit" class="btn-primary">Ingresar</button>
-                </form>
+<form id="form-jefes-opt" class="login-form" onsubmit="handleLogin(event, 'opt')">
+    <div class="input-group">
+        <label>Seleccione su Estado:</label>
+        <select id="estado-opt" required onchange="cargarOptsPorEstado()">
+            <option value="">-- Seleccione su Estado --</option>
+        </select>
+    </div>
+    <div class="input-group">
+        <label>Seleccione su OPT (Sede):</label>
+        <select id="opt-seleccion" required>
+            <option value="">-- Primero seleccione un Estado --</option>
+        </select>
+    </div>
+    <div class="input-group">
+        <label>Clave (Proporcionada por su Gerente):</label>
+        <input type="password" id="pass-opt" placeholder="Ingrese su clave" required>
+    </div>
+    <button type="submit" class="btn-primary">Ingresar</button>
+</form>
             </div>
         </div>
 
