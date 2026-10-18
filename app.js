@@ -301,3 +301,147 @@ async function enviarVoto() {
 function gestionarClaves() {
     alert('Función de Gestión de Claves en desarrollo. Próximamente podrá generar claves para Jefes de OPT.');
 }
+const API_URL = 'https://script.google.com/macros/s/AKfycbx9k3i2Agxy5C66uk1I03aoVHHICvpoVQev1OeBV6UnwZaPGxMbcMnp8Sx5xW_FinCz/exec';
+
+let currentUser = null;
+let authToken = null;
+
+function showScreen(screenId) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(screenId).classList.add('active');
+}
+
+function switchTab(tabName) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    document.querySelectorAll('.login-form').forEach(f => f.classList.remove('active'));
+    document.getElementById(`form-${tabName}`).classList.add('active');
+}
+
+async function handleLogin(event, tipo) {
+    event.preventDefault();
+    
+    let params = {};
+    if(tipo === 'altos') {
+        params = { accion: 'login', tipo: 'altos', rol: document.getElementById('rol-alto').value, clave: document.getElementById('pass-alto').value };
+    } else {
+        params = { accion: 'login', tipo: 'director', rol: document.getElementById('rol-director').value, correo: document.getElementById('correo-director').value, clave: document.getElementById('pass-director').value };
+    }
+
+    try {
+        const response = await fetch(API_URL, { method: 'POST', body: JSON.stringify(params) });
+        const result = await response.json();
+
+        if (result.ok) {
+            if (result.requiereCambio) {
+                alert('Debe cambiar su clave.');
+                showScreen('change-pass-screen');
+                sessionStorage.setItem('temp_rol', params.rol);
+            } else {
+                authToken = result.token;
+                currentUser = result.usuario;
+                document.getElementById('user-name-display').textContent = `${currentUser.nombre} (${currentUser.rol})`;
+                showScreen('dashboard-screen');
+                updateDashboardView();
+            }
+        } else {
+            alert(result.error);
+        }
+    } catch (error) {
+        alert('Error de conexión.');
+    }
+}
+
+async function handleChangePass(event) {
+    event.preventDefault();
+    const newPass = document.getElementById('new-pass').value;
+    if(newPass.length !== 4) { alert('Debe ser de 4 dígitos.'); return; }
+    alert('Para asignar claves manualmente, hazlo en la hoja USUARIOS.');
+    showScreen('login-screen');
+}
+
+function logout() { currentUser = null; authToken = null; showScreen('login-screen'); }
+
+async function updateDashboardView() {
+    const contentDiv = document.getElementById('role-content');
+    if (!currentUser) return;
+    contentDiv.innerHTML = '<p style="text-align: center;">Cargando...</p>';
+
+    try {
+        const response = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ accion: 'obtenerDashboard', token: authToken }) });
+        const result = await response.json();
+
+        if (result.ok) {
+            document.querySelectorAll('.stat-number')[0].textContent = result.data.totalPadron.toLocaleString();
+            document.querySelectorAll('.stat-number')[1].textContent = result.data.totalVotos.toLocaleString();
+
+            if(currentUser.rol === 'OBSERVATORIO') {
+                contentDiv.innerHTML = `
+                    <h3>Acciones de Observatorio</h3>
+                    <button class="btn-primary" style="background:var(--color-secundario); margin-bottom:10px;" onclick="alert('En desarrollo')">Ver Novedades</button>
+                    <button class="btn-primary" style="background:var(--color-acento); color:#000;" onclick="descargarCSV()">Descargar CSV</button>
+                `;
+            } else if (currentUser.rol === 'DIRECTOR') {
+                contentDiv.innerHTML = `
+                    <h3>Panel de Director</h3>
+                    <button class="btn-primary" onclick="cargarVotoCentral()">Cargar Voto</button>
+                `;
+            }
+        } else {
+            contentDiv.innerHTML = `<p style="color:red;">Error: ${result.error}</p>`;
+        }
+    } catch (error) {
+        contentDiv.innerHTML = `<p style="color:red;">Error de conexión.</p>`;
+    }
+}
+
+function cargarVotoCentral() {
+    const modalHTML = `
+        <div id="modal-carga" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
+            <div style="background:white; padding:25px; border-radius:10px; width:90%; max-width:400px; text-align:center;">
+                <h3 style="color:#C8102E;">Cargar Voto</h3>
+                <input type="text" id="input-cedula" placeholder="Cédula del votante" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:5px;">
+                <input type="text" id="input-nombre" placeholder="Nombre completo" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:5px;">
+                <input type="file" id="input-foto" accept="image/*" style="width:100%; margin-bottom:15px;">
+                <button onclick="enviarVoto()" style="background:#C8102E; color:white; padding:10px 20px; border:none; border-radius:5px; width:100%; margin-bottom:10px; font-weight:bold;">Registrar</button>
+                <button onclick="cerrarModalCarga()" style="background:#ccc; color:black; padding:10px 20px; border:none; border-radius:5px; width:100%;">Cancelar</button>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+function cerrarModalCarga() { document.getElementById('modal-carga').remove(); }
+
+async function enviarVoto() {
+    const cedula = document.getElementById('input-cedula').value.trim();
+    const nombre = document.getElementById('input-nombre').value.trim();
+    const fotoInput = document.getElementById('input-foto');
+    if (!cedula || !nombre) { alert('Ingrese cédula y nombre.'); return; }
+
+    let fotoUrl = '';
+    if (fotoInput.files.length > 0) {
+        const reader = new FileReader();
+        const base64 = await new Promise((resolve) => { reader.onload = () => resolve(reader.result.split(',')[1]); reader.readAsDataURL(fotoInput.files[0]); });
+        try {
+            const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ accion: 'subirFoto', token: authToken, base64: base64, nombre: `voto_${cedula}.jpg` }) });
+            const data = await res.json();
+            if (data.ok) fotoUrl = data.url;
+        } catch (e) { console.warn('Error subiendo foto.'); }
+    }
+
+    try {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify({ accion: 'cargarVoto', token: authToken, cedula_votante: cedula, nombre_votante: nombre, es_novedad: false, commit_novedad: '', foto_url: fotoUrl })
+        });
+        const result = await response.json();
+        if (result.ok) { alert('✅ Voto registrado.'); cerrarModalCarga(); updateDashboardView(); }
+        else { alert('❌ ' + result.error); }
+    } catch (error) { alert('Error de conexión.'); }
+}
+
+function descargarCSV() {
+    fetch(API_URL, { method: 'POST', body: JSON.stringify({ accion: 'generarCSV', token: authToken }) })
+    .then(r => r.json()).then(res => { if (res.ok) window.open(res.url, '_blank'); else alert(res.error); });
+}
