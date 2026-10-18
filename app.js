@@ -133,7 +133,15 @@ function logout() {
 }
 
 function cargarDashboard() {
-    enviarAScript({ accion: 'obtenerEstadisticas', token: currentToken }, function(data) {
+    const filtroEstado = document.getElementById('filtro-estado') ? document.getElementById('filtro-estado').value : '';
+    const filtroDireccion = document.getElementById('filtro-direccion') ? document.getElementById('filtro-direccion').value : '';
+    
+    enviarAScript({ 
+        accion: 'obtenerEstadisticas', 
+        token: currentToken, 
+        filtroEstado: filtroEstado, 
+        filtroDireccion: filtroDireccion 
+    }, function(data) {
         if (data.ok) {
             document.querySelectorAll('.stat-number')[0].textContent = data.data.totalPadron;
             document.querySelectorAll('.stat-number')[1].textContent = data.data.totalVotos;
@@ -141,55 +149,84 @@ function cargarDashboard() {
             document.querySelectorAll('.stat-number')[2].textContent = participacion + '%';
             document.querySelectorAll('.stat-number')[3].textContent = data.data.totalNovedades;
             
-            // Mostrar gráficos solo para directores/gerentes/observatorio
             if (currentUser.rol !== 'JEFE_OPT') {
+                document.getElementById('filtros-container').style.display = 'block';
                 document.getElementById('charts-container').style.display = 'block';
-                dibujarGraficos(data.data);
+                llenarFiltros(data.data);
+                dibujarGraficos(data.data, filtroEstado, filtroDireccion);
             }
         }
     });
     updateDashboardView();
 }
 
-function dibujarGraficos(data) {
-    // Gráfico de Barras por Estado
-    const estados = Object.keys(data.padronPorEstado).sort();
-    const padronData = estados.map(e => data.padronPorEstado[e] || 0);
-    const votosData = estados.map(e => data.votosPorEstado[e] || 0);
-    
-    if (chartEstados) chartEstados.destroy();
-    const ctx1 = document.getElementById('chartEstados').getContext('2d');
-    chartEstados = new Chart(ctx1, {
-        type: 'bar',
-        data: {
-            labels: estados,
-            datasets: [
+function llenarFiltros(data) {
+    // Llenar filtro de estados
+    const selectEstado = document.getElementById('filtro-estado');
+    if (selectEstado.options.length <= 1) { // Solo llenar si está vacío
+        const estados = Object.keys(data.padronPorEstado).sort();
+        estados.forEach(e => {
+            let o = document.createElement('option'); o.value = e; o.textContent = e; selectEstado.appendChild(o);
+        });
+    }
+    // Llenar filtro de direcciones (solo si no hay filtro de estado)
+    const selectDireccion = document.getElementById('filtro-direccion');
+    if (selectDireccion.options.length <= 1) {
+        const direcciones = Object.keys(data.padronPorDireccion).sort();
+        direcciones.forEach(d => {
+            let o = document.createElement('option'); o.value = d; o.textContent = d; selectDireccion.appendChild(o);
+        });
+    }
+}
+
+function dibujarGraficos(data, filtroEstado, filtroDireccion) {
+    // Gráfico 1: Por Estado (si no hay filtro de estado)
+    if (!filtroEstado) {
+        const estados = Object.keys(data.padronPorEstado).sort();
+        const padronData = estados.map(e => data.padronPorEstado[e] || 0);
+        const votosData = estados.map(e => data.votosPorEstado[e] || 0);
+        
+        if (chartEstados) chartEstados.destroy();
+        const ctx1 = document.getElementById('chartEstados').getContext('2d');
+        chartEstados = new Chart(ctx1, {
+            type: 'bar',
+            data: { labels: estados, datasets: [
                 { label: 'Padrón', data: padronData, backgroundColor: 'rgba(0, 51, 160, 0.5)' },
                 { label: 'Votos', data: votosData, backgroundColor: 'rgba(200, 16, 46, 0.8)' }
-            ]
-        },
+            ]},
+            options: { responsive: true, scales: { y: { beginAtZero: true } } }
+        });
+    }
+    
+    // Gráfico 2: Por Dirección (si hay filtro de estado o si no hay filtro)
+    const direcciones = Object.keys(data.padronPorDireccion).sort();
+    const padronDirData = direcciones.map(d => data.padronPorDireccion[d] || 0);
+    const votosDirData = direcciones.map(d => data.votosPorDireccion[d] || 0);
+    
+    if (chartDirecciones) chartDirecciones.destroy();
+    const ctx2 = document.getElementById('chartDirecciones').getContext('2d');
+    chartDirecciones = new Chart(ctx2, {
+        type: 'bar',
+        data: { labels: direcciones, datasets: [
+            { label: 'Padrón', data: padronDirData, backgroundColor: 'rgba(0, 51, 160, 0.5)' },
+            { label: 'Votos', data: votosDirData, backgroundColor: 'rgba(200, 16, 46, 0.8)' }
+        ]},
         options: { responsive: true, scales: { y: { beginAtZero: true } } }
     });
     
-    // Gráfico de Línea por Hora
+    // Gráfico 3: Curva por Hora
     const horas = Object.keys(data.votosPorHora).sort();
     const votosHora = horas.map(h => data.votosPorHora[h]);
     
     if (chartHoras) chartHoras.destroy();
-    const ctx2 = document.getElementById('chartHoras').getContext('2d');
-    chartHoras = new Chart(ctx2, {
+    const ctx3 = document.getElementById('chartHoras').getContext('2d');
+    chartHoras = new Chart(ctx3, {
         type: 'line',
-        data: {
-            labels: horas,
-            datasets: [{
-                label: 'Votos por Hora',
-                data: votosHora,
-                borderColor: 'rgba(200, 16, 46, 1)',
-                backgroundColor: 'rgba(200, 16, 46, 0.2)',
-                fill: true,
-                tension: 0.4
-            }]
-        },
+        data: { labels: horas, datasets: [{
+            label: 'Votos por Hora', data: votosHora,
+            borderColor: 'rgba(200, 16, 46, 1)', backgroundColor: 'rgba(200, 16, 46, 0.2)',
+            fill: true, tension: 0.4
+        }]},
         options: { responsive: true, scales: { y: { beginAtZero: true } } }
     });
 }
