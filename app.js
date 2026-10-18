@@ -354,4 +354,36 @@ function buscarEnPadron() {
 function guardarVotoReal() {
     const cedula = document.getElementById('voto-cedula').value;
     const nombre = document.getElementById('voto-nombre').value;
-    const
+    const commit = document.getElementById('voto-commit').value;
+    const fotoInput = document.getElementById('voto-foto');
+    if (!cedula) { alert("Debe ingresar una cédula."); return; }
+    const enviarDatos = (fotoUrl) => {
+        enviarAScript({ accion: 'cargarVoto', token: currentToken, cedula_votante: cedula, nombre_votante: nombre, commit_novedad: commit, foto_url: fotoUrl }, function(data) {
+            if (data.ok) { alert("✅ " + data.mensaje); cerrarModal('modal-carga'); cargarDashboard(); }
+            else {
+                if (data.requiereCommit) {
+                    document.getElementById('grupo-nombre').style.display = 'block';
+                    document.getElementById('grupo-commit').style.display = 'block';
+                    alert("⚠️ " + data.error);
+                } else { alert("Error: " + data.error); }
+            }
+        });
+    };
+    if (fotoInput.files.length > 0) {
+        const file = fotoInput.files[0];
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const base64Data = e.target.result.split(',')[1];
+            enviarAScript({ accion: 'subirFoto', token: currentToken, base64: base64Data, nombre: 'voto_' + cedula + '.jpg' }, function(dataFoto) {
+                if (dataFoto.ok) enviarDatos(dataFoto.url);
+                else { alert("Error al subir foto: " + dataFoto.error); enviarDatos(''); }
+            });
+        };
+        reader.readAsDataURL(file);
+    } else { enviarDatos(''); }
+}
+
+function cerrarModal(idModal) {
+    const modal = document.getElementById(idModal);
+    if (modal) modal.remove();
+}
