@@ -6,59 +6,16 @@ let currentToken = null;
 
 // --- FUNCIÓN DE ENVÍO SEGURO (SIN CORS) ---
 function enviarAScript(datos, callback) {
-    // Creamos un iframe oculto
-    const iframeName = 'iframe_' + Date.now();
-    const iframe = document.createElement('iframe');
-    iframe.name = iframeName;
-    iframe.style.display = 'none';
-    document.body.appendChild(iframe);
-
-    // Creamos un formulario que apunta a Google
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = API_URL;
-    form.target = iframeName;
-    form.style.display = 'none';
-
-    // Añadimos todos los datos como inputs ocultos
-    for (const key in datos) {
-        if (datos.hasOwnProperty(key)) {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = key;
-            input.value = datos[key];
-            form.appendChild(input);
-        }
-    }
-
-    document.body.appendChild(form);
-    form.submit();
-
-    // Esperamos que el iframe cargue la respuesta
-    iframe.onload = function() {
-        try {
-            const respuesta = iframe.contentDocument.body.innerText;
-            const json = JSON.parse(respuesta);
-            callback(json);
-        } catch (e) {
-            callback({ ok: false, error: 'Error de respuesta del servidor' });
-        }
-        // Limpiamos el iframe y el formulario
-        setTimeout(() => {
-            document.body.removeChild(iframe);
-            document.body.removeChild(form);
-        }, 1000);
-    };
-
-    // Timeout de seguridad
-    setTimeout(() => {
-        if (document.body.contains(iframe)) {
-            document.body.removeChild(iframe);
-            document.body.removeChild(form);
-            callback({ ok: false, error: 'Timeout de conexión' });
-        }
-    }, 10000);
+    fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(datos)
+    })
+    .then(res => res.json())
+    .then(data => callback(data))
+    .catch(err => callback({ ok: false, error: 'Error de conexión: ' + err.message }));
 }
+
 
 // --- UI Y PESTAÑAS ---
 function showScreen(screenId) {
