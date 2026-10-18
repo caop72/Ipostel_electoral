@@ -1,9 +1,8 @@
 // --- VARIABLES GLOBALES ---
 let currentToken = null;
 let currentUser = null;
-let API_URL = 'https://script.google.com/macros/s/AKfycbw.../exec'; // Asegúrate de que esta URL sea la correcta en tu app.js original
+let API_URL = 'https://script.google.com/macros/s/AKfycbw.../exec'; // <--- VERIFICA QUE ESTA URL SEA LA TUYA
 
-// Variables para los gráficos (para poder destruirlos y recrearlos)
 let chartEstados = null;
 let chartDirecciones = null;
 let chartHoras = null;
@@ -24,14 +23,12 @@ function enviarAScript(datos, callback) {
 function cargarDashboard() {
     enviarAScript({ accion: 'obtenerEstadisticas', token: currentToken }, function(data) {
         if (data.ok) {
-            // Actualizar tarjetas superiores
             document.querySelectorAll('.stat-number')[0].textContent = data.data.totalPadron;
             document.querySelectorAll('.stat-number')[1].textContent = data.data.totalVotos;
             const participacion = data.data.totalPadron > 0 ? ((data.data.totalVotos / data.data.totalPadron) * 100).toFixed(1) : 0;
             document.querySelectorAll('.stat-number')[2].textContent = participacion + '%';
             document.querySelectorAll('.stat-number')[3].textContent = data.data.totalNovedades;
             
-            // Dibujar gráficos si no es Jefe de OPT
             if (currentUser.rol !== 'JEFE_OPT') {
                 document.getElementById('charts-container').style.display = 'block';
                 dibujarGraficos(data.data);
@@ -69,7 +66,7 @@ function cargarPorVerificar() {
 }
 
 function dibujarGraficos(data) {
-    console.log("Datos recibidos para gráficos:", data); // <-- ESTO NOS DIRÁ QUÉ LLEGA
+    console.log("Datos recibidos:", data); // Para depurar en la consola (F12)
 
     // --- Gráfico 1: Participación por Estado ---
     const estados = Object.keys(data.padronPorEstado || {}).sort();
@@ -82,6 +79,8 @@ function dibujarGraficos(data) {
     if (chartEstados) chartEstados.destroy();
     const canvas1 = document.getElementById('chartEstados');
     if (canvas1) {
+        // Forzamos la altura por si el HTML no la tiene
+        canvas1.parentElement.style.height = '400px'; 
         const ctx1 = canvas1.getContext('2d');
         chartEstados = new Chart(ctx1, {
             type: 'bar',
@@ -93,7 +92,14 @@ function dibujarGraficos(data) {
                     backgroundColor: 'rgba(200, 16, 46, 0.8)'
                 }]
             },
-            options: { responsive: true, maintainAspectRatio: false }
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false,
+                scales: { 
+                    y: { beginAtZero: true, max: 100, ticks: { callback: function(value) { return value + '%'; } } },
+                    x: { ticks: { maxRotation: 90, minRotation: 45 } }
+                }
+            }
         });
     }
     
@@ -105,6 +111,7 @@ function dibujarGraficos(data) {
     if (chartDirecciones) chartDirecciones.destroy();
     const canvas2 = document.getElementById('chartDirecciones');
     if (canvas2) {
+        canvas2.parentElement.style.height = '400px';
         const ctx2 = canvas2.getContext('2d');
         chartDirecciones = new Chart(ctx2, {
             type: 'bar',
@@ -115,7 +122,14 @@ function dibujarGraficos(data) {
                     { label: 'Votos', data: votosDirData.length > 0 ? votosDirData : [0], backgroundColor: 'rgba(200, 16, 46, 0.8)' }
                 ]
             },
-            options: { responsive: true, maintainAspectRatio: false }
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false,
+                scales: { 
+                    y: { beginAtZero: true },
+                    x: { ticks: { maxRotation: 90, minRotation: 45 } }
+                }
+            }
         });
     }
     
@@ -126,6 +140,7 @@ function dibujarGraficos(data) {
     if (chartHoras) chartHoras.destroy();
     const canvas3 = document.getElementById('chartHoras');
     if (canvas3) {
+        canvas3.parentElement.style.height = '300px';
         const ctx3 = canvas3.getContext('2d');
         chartHoras = new Chart(ctx3, {
             type: 'line',
@@ -139,60 +154,6 @@ function dibujarGraficos(data) {
             },
             options: { responsive: true, maintainAspectRatio: false }
         });
-    }
-}
-    
-    // --- Gráfico 2: Avance por Dirección ---
-    const direcciones = Object.keys(data.padronPorDireccion || {}).sort();
-    if (direcciones.length > 0) {
-        const padronDirData = direcciones.map(d => data.padronPorDireccion[d] || 0);
-        const votosDirData = direcciones.map(d => data.votosPorDireccion[d] || 0);
-        
-        if (chartDirecciones) chartDirecciones.destroy();
-        const canvas2 = document.getElementById('chartDirecciones');
-        if (canvas2) {
-            const ctx2 = canvas2.getContext('2d');
-            chartDirecciones = new Chart(ctx2, {
-                type: 'bar',
-                data: { labels: direcciones, datasets: [
-                    { label: 'Padrón', data: padronDirData, backgroundColor: 'rgba(0, 51, 160, 0.5)' },
-                    { label: 'Votos', data: votosDirData, backgroundColor: 'rgba(200, 16, 46, 0.8)' }
-                ]},
-                options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false,
-                    scales: { 
-                        y: { beginAtZero: true },
-                        x: { ticks: { maxRotation: 90, minRotation: 45 } }
-                    } 
-                }
-            });
-        }
-    }
-    
-    // --- Gráfico 3: Curva por Hora ---
-    const horas = Object.keys(data.votosPorHora || {}).sort();
-    if (horas.length > 0) {
-        const votosHora = horas.map(h => data.votosPorHora[h]);
-        
-        if (chartHoras) chartHoras.destroy();
-        const canvas3 = document.getElementById('chartHoras');
-        if (canvas3) {
-            const ctx3 = canvas3.getContext('2d');
-            chartHoras = new Chart(ctx3, {
-                type: 'line',
-                data: { labels: horas, datasets: [{
-                    label: 'Votos por Hora', data: votosHora,
-                    borderColor: 'rgba(200, 16, 46, 1)', backgroundColor: 'rgba(200, 16, 46, 0.2)',
-                    fill: true, tension: 0.4
-                }]},
-                options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false,
-                    scales: { y: { beginAtZero: true } } 
-                }
-            });
-        }
     }
 }
 
