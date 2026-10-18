@@ -154,13 +154,11 @@ function logout() {
 
 function cargarDashboard(filtros = {}) {
     const filtroEstado = filtros.estado || '';
-    const filtroDireccion = filtros.direccion || '';
     
     enviarAScript({ 
         accion: 'obtenerEstadisticas', 
         token: currentToken, 
-        filtroEstado: filtroEstado, 
-        filtroDireccion: filtroDireccion 
+        filtroEstado: filtroEstado
     }, function(data) {
         if (data.ok) {
             document.querySelectorAll('.stat-number')[0].textContent = data.data.totalPadron;
@@ -172,36 +170,40 @@ function cargarDashboard(filtros = {}) {
             if (currentUser.rol !== 'JEFE_OPT') {
                 document.getElementById('filtros-container').style.display = 'block';
                 document.getElementById('charts-container').style.display = 'block';
-                
-                // Si es Gerente de Estado, ocultar el filtro de estados (ya está fijado a su estado)
-                if (currentUser.rol === 'GERENTE_ESTADO') {
-                    document.getElementById('filtro-estado').style.display = 'none';
-                    // O simplemente deshabilitarlo y ponerle su estado
-                    const selectEstado = document.getElementById('filtro-estado');
-                    selectEstado.innerHTML = `<option value="${currentUser.estado}">${currentUser.estado}</option>`;
-                }
-                
-                llenarFiltros(data.data, filtroEstado, filtroDireccion);
-                dibujarGraficos(data.data, filtroEstado, filtroDireccion);
+                llenarFiltros(data.data, filtroEstado);
+                dibujarGraficos(data.data, filtroEstado);
             }
         }
     });
     updateDashboardView();
 }
-function llenarFiltros(data, filtroEstado, filtroDireccion) {
+
+function llenarFiltros(data, filtroEstado) {
     const selectEstado = document.getElementById('filtro-estado');
-    const selectDireccion = document.getElementById('filtro-direccion');
     
-    // 1. Llenar filtro de estados (solo si está vacío)
-    if (selectEstado.options.length <= 1) {
-        let estados = Object.keys(data.padronPorEstado).sort();
-        
-        // Si es DIRECTOR, solo mostrar sus estados asignados
-        if (currentUser.rol === 'DIRECTOR') {
-            const estadosAsignados = mapaDirectores[currentUser.estado] || [];
-            estados = estados.filter(e => estadosAsignados.includes(e));
+    // Si es Gerente de Estado, solo mostrar su estado (fijado)
+    if (currentUser.rol === 'GERENTE_ESTADO') {
+        selectEstado.innerHTML = `<option value="${currentUser.estado}">${currentUser.estado}</option>`;
+        return;
+    }
+    
+    // Si es Director, mostrar solo sus estados asignados
+    if (currentUser.rol === 'DIRECTOR') {
+        const estadosAsignados = mapaDirectores[currentUser.estado] || [];
+        if (selectEstado.options.length <= 1) {
+            estadosAsignados.forEach(e => {
+                let o = document.createElement('option');
+                o.value = e;
+                o.textContent = e;
+                selectEstado.appendChild(o);
+            });
         }
-        
+        return;
+    }
+    
+    // Si es Observatorio, mostrar todos
+    if (selectEstado.options.length <= 1) {
+        const estados = Object.keys(data.padronPorEstado).sort();
         estados.forEach(e => {
             let o = document.createElement('option');
             o.value = e;
@@ -209,40 +211,54 @@ function llenarFiltros(data, filtroEstado, filtroDireccion) {
             selectEstado.appendChild(o);
         });
     }
-    
-    // 2. Llenar filtro de direcciones
-    while (selectDireccion.options.length > 1) {
-        selectDireccion.remove(1);
-    }
-    
-    let direcciones = Object.keys(data.padronPorDireccion).sort();
-    direcciones.forEach(d => {
-        let o = document.createElement('option');
-        o.value = d;
-        o.textContent = d;
-        selectDireccion.appendChild(o);
-    });
-}
-
-function actualizarDirecciones() {
-    const estado = document.getElementById('filtro-estado').value;
-    if (estado) {
-        cargarDashboard({ estado: estado });
-    } else {
-        cargarDashboard({});
-    }
 }
 
 function aplicarFiltros() {
     const estado = document.getElementById('filtro-estado').value;
-    const direccion = document.getElementById('filtro-direccion').value;
-    cargarDashboard({ estado: estado, direccion: direccion });
+    cargarDashboard({ estado: estado });
 }
 
 function limpiarFiltros() {
     document.getElementById('filtro-estado').value = '';
-    document.getElementById('filtro-direccion').value = '';
     cargarDashboard({});
+}
+
+function dibujarGraficos(data, filtroEstado) {
+    // Si hay filtro de estado, solo mostrar ese estado en el gráfico
+    let estados = Object.keys(data.padronPorEstado).sort();
+    if (filtroEstado) {
+        estados = [filtroEstado];
+    }
+    
+    const padronData = estados.map(e => data.padronPorEstado[e] || 0);
+    const votosData = estados.map(e => data.votosPorEstado[e] || 0);
+    
+    if (chartEstados) chartEstados.destroy();
+    const ctx1 = document.getElementById('chartEstados').getContext('2d');
+    chartEstados = new Chart(ctx1, {
+        type: 'bar',
+        data: { labels: estados, datasets: [
+            { label: 'Padrón', data: padronData, backgroundColor: 'rgba(0, 51, 160, 0.5)' },
+            { label: 'Votos', data: votosData, backgroundColor: 'rgba(200, 16, 46, 0.8)' }
+        ]},
+        options: { responsive: true, scales: { y: { beginAtZero: true } } }
+    });
+    
+    // Curva por Hora (sin cambios)
+    const horas = Object.keys(data.votosPorHora).sort();
+    const votosHora = horas.map(h => data.votosPorHora[h]);
+    
+    if (chartHoras) chartHoras.destroy();
+    const ctx3 = document.getElementById('chartHoras').getContext('2d');
+    chartHoras = new Chart(ctx3, {
+        type: 'line',
+        data: { labels: horas, datasets: [{
+            label: 'Votos por Hora', data: votosHora,
+            borderColor: 'rgba(200, 16, 46, 1)', backgroundColor: 'rgba(200, 16, 46, 0.2)',
+            fill: true, tension: 0.4
+        }]},
+        options: { responsive: true, scales: { y: { beginAtZero: true } } }
+    });
 }
 
 function dibujarGraficos(data, filtroEstado, filtroDireccion) {
