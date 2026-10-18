@@ -1,10 +1,7 @@
-// URL DIRECTA DE TU GOOGLE APPS SCRIPT
 const API_URL = 'https://blue-river-9145.ipostel-monitor.workers.dev';
-
 let currentUser = null;
 let currentToken = null;
 
-// --- FUNCIÓN DE ENVÍO SEGURO (SIN CORS) ---
 function enviarAScript(datos, callback) {
     fetch(API_URL, {
         method: 'POST',
@@ -16,7 +13,6 @@ function enviarAScript(datos, callback) {
     .catch(err => callback({ ok: false, error: 'Error de conexión: ' + err.message }));
 }
 
-// --- UI Y PESTAÑAS ---
 function showScreen(screenId) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(screenId).classList.add('active');
@@ -26,27 +22,23 @@ function switchTab(tabName) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     if (event && event.target) event.target.classList.add('active');
     document.querySelectorAll('.login-form').forEach(f => f.classList.remove('active'));
-    const formId = tabName === 'altos-cargos' ? 'form-altos' : (tabName === 'directores' ? 'form-directores' : 'form-jefes-opt');
+    const formId = tabName === 'altos-cargos' ? 'form-altos' : (tabName === 'directores' ? 'form-directores' : 'form-gerentes');
     document.getElementById(formId).classList.add('active');
-    if (tabName === 'jefes-opt') cargarOpcionesOPT();
+    if (tabName === 'gerentes') cargarEstadosParaGerente();
 }
 
-function cargarOpcionesOPT() {
-    const select = document.getElementById('opt-seleccion');
+function cargarEstadosParaGerente() {
+    const select = document.getElementById('estado-gerente');
     if (select.options.length > 1) return;
-    enviarAScript({ accion: 'obtenerOPTs' }, function(data) {
-        if (data.ok) {
-            data.data.forEach(opt => {
-                let option = document.createElement('option');
-                option.value = opt;
-                option.textContent = opt;
-                select.appendChild(option);
-            });
-        }
+    const estados = ['DISTRITO CAPITAL', 'MIRANDA', 'LA GUAIRA', 'LARA', 'ZULIA', 'CARABOBO', 'SUCRE', 'ARAGUA', 'TRUJILLO', 'FALCON', 'MONAGAS', 'DELTA AMACURO', 'BOLÍVAR', 'TÁCHIRA', 'MÉRIDA', 'BARINAS', 'COJEDES', 'APURE', 'AMAZONAS', 'PORTUGUESA', 'NUEVA ESPARTA', 'ANZOÁTEGUI', 'GUÁRICO', 'YARACUY'];
+    estados.forEach(e => {
+        let option = document.createElement('option');
+        option.value = e;
+        option.textContent = e;
+        select.appendChild(option);
     });
 }
 
-// --- LOGIN ---
 function handleLogin(event, tipo) {
     event.preventDefault();
     let payload = { accion: 'login', tipo: tipo };
@@ -57,9 +49,9 @@ function handleLogin(event, tipo) {
         payload.rol = document.getElementById('rol-director').value;
         payload.correo = document.getElementById('correo-director').value;
         payload.clave = document.getElementById('pass-director').value;
-    } else if (tipo === 'opt') {
-        payload.rol = document.getElementById('opt-seleccion').value;
-        payload.clave = document.getElementById('pass-opt').value;
+    } else if (tipo === 'gerente') {
+        payload.rol = document.getElementById('estado-gerente').value;
+        payload.clave = document.getElementById('pass-gerente').value;
     }
 
     enviarAScript(payload, function(data) {
@@ -77,7 +69,6 @@ function handleLogin(event, tipo) {
     });
 }
 
-// --- CAMBIO DE CLAVE ---
 function handleChangePass(event) {
     event.preventDefault();
     const newPass = document.getElementById('new-pass').value;
@@ -85,24 +76,14 @@ function handleChangePass(event) {
         enviarAScript({ accion: 'cambiarClave', correo: currentUser.correo, nuevaClave: newPass }, function(data) {
             if (data.ok) {
                 alert('Clave guardada correctamente.');
-                let loginPayload = { accion: 'login', tipo: currentUser.rol === 'DIRECTOR' ? 'director' : (currentUser.rol === 'JEFE_OPT' ? 'opt' : 'altos'), correo: currentUser.correo, rol: currentUser.estado, clave: newPass };
+                let loginPayload = { accion: 'login', tipo: currentUser.rol === 'DIRECTOR' ? 'director' : (currentUser.rol === 'JEFE_OPT' ? 'opt' : (currentUser.rol === 'GERENTE_ESTADO' ? 'gerente' : 'altos')), correo: currentUser.correo, rol: currentUser.estado, clave: newPass };
                 enviarAScript(loginPayload, function(data2) {
-                    if (data2.ok) {
-                        currentToken = data2.token;
-                        currentUser = data2.usuario;
-                        loginSuccess();
-                    } else {
-                        alert('Error al iniciar sesión.');
-                        logout();
-                    }
+                    if (data2.ok) { currentToken = data2.token; currentUser = data2.usuario; loginSuccess(); }
+                    else { alert('Error al iniciar sesión.'); logout(); }
                 });
-            } else {
-                alert('Error al guardar clave: ' + data.error);
-            }
+            } else { alert('Error al guardar clave: ' + data.error); }
         });
-    } else {
-        alert('La clave debe tener 4 dígitos.');
-    }
+    } else { alert('La clave debe tener 4 dígitos.'); }
 }
 
 function loginSuccess() {
@@ -112,13 +93,11 @@ function loginSuccess() {
 }
 
 function logout() {
-    currentUser = null;
-    currentToken = null;
+    currentUser = null; currentToken = null;
     document.getElementById('new-pass').value = '';
     showScreen('login-screen');
 }
 
-// --- DASHBOARD ---
 function cargarDashboard() {
     enviarAScript({ accion: 'obtenerDashboard', token: currentToken }, function(data) {
         if (data.ok) {
@@ -134,31 +113,90 @@ function updateDashboardView() {
     if (currentUser.rol === 'DIRECTOR') {
         contentDiv.innerHTML = `
             <h3 style="margin-bottom:15px; color:#0033A0; text-align:center;">Panel de Director</h3>
-            <p style="margin-bottom:20px; font-size:14px; text-align:center;">Gestión para: <b>${currentUser.estado || 'Nacional'}</b></p>
+            <p style="margin-bottom:20px; font-size:14px; text-align:center;">Jurisdicción: <b>${currentUser.estado || 'Nacional'}</b></p>
             <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
                 <button class="btn-primary" style="width:auto; padding:15px 30px;" onclick="abrirModalCargaVoto()">Cargar Voto</button>
-                <button class="btn-primary" style="width:auto; padding:15px 30px; background:#0033A0;" onclick="abrirModalClaves()">Ver Claves de OPT</button>
+                <button class="btn-primary" style="width:auto; padding:15px 30px; background:#0033A0;" onclick="abrirModalGerentes()">Gestionar Gerentes y Claves</button>
+            </div>
+        `;
+    } else if (currentUser.rol === 'GERENTE_ESTADO') {
+        contentDiv.innerHTML = `
+            <h3 style="margin-bottom:15px; color:#0033A0; text-align:center;">Panel de Gerente de Estado</h3>
+            <p style="margin-bottom:20px; font-size:14px; text-align:center;">Estado: <b>${currentUser.estado}</b></p>
+            <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+                <button class="btn-primary" style="width:auto; padding:15px 30px;" onclick="abrirModalCargaVoto()">Cargar Voto</button>
+                <button class="btn-primary" style="width:auto; padding:15px 30px; background:#0033A0;" onclick="abrirModalOpts()">Ver OPTs de mi Estado</button>
             </div>
         `;
     } else if (currentUser.rol === 'JEFE_OPT') {
         contentDiv.innerHTML = `
             <h3 style="margin-bottom:15px; color:#0033A0; text-align:center;">Panel de Jefe de OPT</h3>
-            <p style="margin-bottom:20px; font-size:14px; text-align:center;">Gestión para: <b>${currentUser.estado}</b></p>
+            <p style="margin-bottom:20px; font-size:14px; text-align:center;">OPT: <b>${currentUser.estado}</b></p>
             <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
                 <button class="btn-primary" style="width:auto; padding:15px 30px;" onclick="abrirModalCargaVoto()">Cargar Voto</button>
             </div>
         `;
     } else {
-        contentDiv.innerHTML = `
-            <h3 style="margin-bottom:15px; color:#0033A0; text-align:center;">Panel de ${currentUser.rol}</h3>
-            <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
-                <button class="btn-primary" style="width:auto; padding:15px 30px; background:#dc3545;" onclick="abrirModalNovedades()">Gestionar Novedades</button>
-            </div>
-        `;
+        contentDiv.innerHTML = `<h3 style="text-align:center; color:#0033A0;">Panel de ${currentUser.rol}</h3>`;
     }
 }
 
-// --- MODALES ---
+function abrirModalGerentes() {
+    enviarAScript({ accion: 'obtenerGerentesPorDirector', token: currentToken }, function(data) {
+        let tabla = '<tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">Estado</th><th style="padding:5px; border:1px solid #ddd;">Clave</th></tr>';
+        if (data.ok && data.data.length > 0) {
+            data.data.forEach((estado, index) => {
+                const clave = String(1000 + index).slice(-4);
+                tabla += `<tr><td style="padding:5px; border:1px solid #ddd;">${estado}</td><td style="padding:5px; border:1px solid #ddd; font-weight:bold;">${clave}</td></tr>`;
+            });
+        } else {
+            tabla += '<tr><td colspan="2" style="text-align:center;">No hay estados asignados.</td></tr>';
+        }
+
+        let modalHTML = `
+            <div id="modal-gerentes" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
+                <div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:500px; max-height: 80vh; overflow-y: auto;">
+                    <h3 style="margin-bottom:15px; color:#0033A0;">Gerentes de Estado y Claves</h3>
+                    <p style="font-size:14px; margin-bottom:15px;">Entregue estas claves a sus Gerentes de Estado.</p>
+                    <table style="width:100%; border-collapse: collapse; font-size:12px;">
+                        ${tabla}
+                    </table>
+                    <button onclick="cerrarModal('modal-gerentes')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+    });
+}
+
+function abrirModalOpts() {
+    enviarAScript({ accion: 'obtenerOptsPorEstado', token: currentToken, estado: currentUser.estado }, function(data) {
+        let tabla = '<tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">OPT</th><th style="padding:5px; border:1px solid #ddd;">Clave</th></tr>';
+        if (data.ok && data.data.length > 0) {
+            data.data.forEach((opt, index) => {
+                const clave = String(2000 + index).slice(-4);
+                tabla += `<tr><td style="padding:5px; border:1px solid #ddd;">${opt}</td><td style="padding:5px; border:1px solid #ddd; font-weight:bold;">${clave}</td></tr>`;
+            });
+        } else {
+            tabla += '<tr><td colspan="2" style="text-align:center;">No hay OPTs en este estado.</td></tr>';
+        }
+
+        let modalHTML = `
+            <div id="modal-opts" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
+                <div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:500px; max-height: 80vh; overflow-y: auto;">
+                    <h3 style="margin-bottom:15px; color:#0033A0;">OPTs de ${currentUser.estado}</h3>
+                    <p style="font-size:14px; margin-bottom:15px;">Entregue estas claves a sus Jefes de OPT.</p>
+                    <table style="width:100%; border-collapse: collapse; font-size:12px;">
+                        ${tabla}
+                    </table>
+                    <button onclick="cerrarModal('modal-opts')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+    });
+}
+
 function abrirModalCargaVoto() {
     let modalHTML = `
         <div id="modal-carga" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
@@ -247,13 +285,8 @@ function cargarNovedades() {
 function gestionarNovedad(fila, accion) {
     if (!confirm(`¿Está seguro de ${accion} esta novedad?`)) return;
     enviarAScript({ accion: 'gestionarNovedad', token: currentToken, fila: fila, accionNovedad: accion }, function(data) {
-        if (data.ok) {
-            alert(data.mensaje);
-            cargarNovedades();
-            cargarDashboard();
-        } else {
-            alert("Error: " + data.error);
-        }
+        if (data.ok) { alert(data.mensaje); cargarNovedades(); cargarDashboard(); }
+        else { alert("Error: " + data.error); }
     });
 }
 
@@ -288,18 +321,13 @@ function guardarVotoReal() {
 
     const enviarDatos = (fotoUrl) => {
         enviarAScript({ accion: 'cargarVoto', token: currentToken, cedula_votante: cedula, nombre_votante: nombre, commit_novedad: commit, foto_url: fotoUrl }, function(data) {
-            if (data.ok) {
-                alert("✅ " + data.mensaje);
-                cerrarModal('modal-carga');
-                cargarDashboard();
-            } else {
+            if (data.ok) { alert("✅ " + data.mensaje); cerrarModal('modal-carga'); cargarDashboard(); }
+            else {
                 if (data.requiereCommit) {
                     document.getElementById('grupo-nombre').style.display = 'block';
                     document.getElementById('grupo-commit').style.display = 'block';
                     alert("⚠️ " + data.error);
-                } else {
-                    alert("Error: " + data.error);
-                }
+                } else { alert("Error: " + data.error); }
             }
         });
     };
@@ -315,38 +343,7 @@ function guardarVotoReal() {
             });
         };
         reader.readAsDataURL(file);
-    } else {
-        enviarDatos('');
-    }
-}
-
-// --- ÚNICO AJUSTE: MODAL DE CLAVES DINÁMICO ---
-function abrirModalClaves() {
-    enviarAScript({ accion: 'obtenerOPTs' }, function(data) {
-        let tabla = '<tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">OPT</th><th style="padding:5px; border:1px solid #ddd;">Clave</th></tr>';
-        if (data.ok && data.data.length > 0) {
-            data.data.forEach((opt, index) => {
-                const clave = String(1000 + index).slice(-4);
-                tabla += `<tr><td style="padding:5px; border:1px solid #ddd;">${opt}</td><td style="padding:5px; border:1px solid #ddd; font-weight:bold;">${clave}</td></tr>`;
-            });
-        } else {
-            tabla += '<tr><td colspan="2" style="text-align:center; padding:10px;">No hay OPTs disponibles.</td></tr>';
-        }
-
-        let modalHTML = `
-            <div id="modal-claves" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
-                <div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:500px; max-height:80vh; overflow-y:auto;">
-                    <h3 style="margin-bottom:15px; color:#0033A0;">Claves de OPTs</h3>
-                    <p style="font-size:14px; margin-bottom:15px;">Entregue estas claves vía WhatsApp a sus Jefes de OPT.</p>
-                    <table style="width:100%; border-collapse: collapse; font-size:12px;">
-                        ${tabla}
-                    </table>
-                    <button onclick="cerrarModal('modal-claves')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button>
-                </div>
-            </div>
-        `;
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
-    });
+    } else { enviarDatos(''); }
 }
 
 function cerrarModal(idModal) {
