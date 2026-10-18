@@ -1,25 +1,18 @@
-// CONFIGURACIÓN
 const API_URL = 'https://script.google.com/macros/s/AKfycbyh0dzss884hspHxQ-T90kusjvwAksXIrQgJaA9Ge25TCAfnBxxyykfe73bJI14upBM/exec';
 let currentUser = null;
 let currentToken = null;
 
-// --- NAVEGACIÓN Y PESTAÑAS ---
+// --- UI ---
 function showScreen(screenId) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(screenId).classList.add('active');
 }
 
 function switchTab(tabName) {
-    // Quitar clase activa a todos los botones y formularios
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
     document.querySelectorAll('.login-form').forEach(f => f.classList.remove('active'));
-    
-    // Activar el botón y formulario seleccionado
-    const btn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.textContent.toLowerCase().includes(tabName === 'altos-cargos' ? 'altos' : 'directores'));
-    if(btn) btn.classList.add('active');
-    
-    const formId = tabName === 'altos-cargos' ? 'form-altos' : 'form-directores';
-    document.getElementById(formId).classList.add('active');
+    document.getElementById(`form-${tabName}`).classList.add('active');
 }
 
 // --- LOGIN ---
@@ -38,10 +31,9 @@ function handleLogin(event, tipo) {
         if(!payload.rol || !payload.correo) { alert('Seleccione estado y correo.'); return; }
     }
 
-    // Enviamos los datos al backend de Google
     fetch(API_URL, {
         method: 'POST',
-        body: new URLSearchParams(payload) // Usamos FormData para evitar problemas de CORS
+        body: new URLSearchParams(payload)
     })
     .then(res => res.json())
     .then(data => {
@@ -69,29 +61,17 @@ function handleChangePass(event) {
     const newPass = document.getElementById('new-pass').value;
     
     if(newPass.length === 4 && !isNaN(newPass)) {
-        // Enviamos SOLO el correo y la nueva clave
-        const payload = { 
-            accion: 'cambiarClave', 
-            correo: currentUser.correo, 
-            nuevaClave: newPass 
-        };
+        const payload = { accion: 'cambiarClave', correo: currentUser.correo, nuevaClave: newPass };
 
         fetch(API_URL, {
             method: 'POST',
-            body: new URLSearchParams(payload) // Usamos FormData
+            body: new URLSearchParams(payload)
         })
         .then(res => res.json())
         .then(data => {
             if(data.ok) {
                 alert('Clave guardada correctamente. Iniciando sesión...');
-                // Hacemos login automático con la nueva clave
-                let loginPayload = { 
-                    accion: 'login', 
-                    tipo: 'director', 
-                    correo: currentUser.correo, 
-                    rol: currentUser.estado, 
-                    clave: newPass 
-                };
+                let loginPayload = { accion: 'login', tipo: currentUser.rol === 'DIRECTOR' ? 'director' : 'altos', correo: currentUser.correo, rol: currentUser.estado, clave: newPass };
                 fetch(API_URL, { method: 'POST', body: new URLSearchParams(loginPayload) })
                 .then(res => res.json())
                 .then(data2 => {
@@ -100,7 +80,7 @@ function handleChangePass(event) {
                         currentUser = data2.usuario;
                         loginSuccess();
                     } else {
-                        alert('Error al iniciar sesión automáticamente. Por favor, ingrese manualmente.');
+                        alert('Error al iniciar sesión automáticamente.');
                         logout();
                     }
                 });
@@ -113,6 +93,7 @@ function handleChangePass(event) {
         alert('La clave debe tener exactamente 4 dígitos numéricos.');
     }
 }
+
 function loginSuccess() {
     document.getElementById('user-name-display').textContent = `${currentUser.nombre}`;
     showScreen('dashboard-screen');
@@ -145,21 +126,27 @@ function cargarDashboard() {
 function updateDashboardView() {
     const contentDiv = document.getElementById('role-content');
     
-    if(currentUser.rol === 'OBSERVATORIO' || currentUser.rol === 'PRESIDENCIA' || currentUser.rol === 'DESPACHO') {
+    // Si el rol es director, dibujamos sus botones
+    if (currentUser.rol === 'DIRECTOR') {
         contentDiv.innerHTML = `
-            <h3 style="margin-bottom:15px; color:#0033A0;">Panel de ${currentUser.rol}</h3>
-            <button class="btn-primary" style="margin-bottom:10px; background:#0033A0;" onclick="alert('Estadísticas en construcción.')">Ver Estadísticas Globales</button>
+            <h3 style="margin-bottom:15px; color:#0033A0; text-align:center;">Panel de Director</h3>
+            <p style="margin-bottom:20px; font-size:14px; text-align:center;">Gestión para: <b>${currentUser.estado || 'Nacional'}</b></p>
+            <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+                <button class="btn-primary" style="width:auto; padding:15px 30px;" onclick="abrirModalCargaVoto()">
+                    <i class="fa-solid fa-check-circle"></i> Cargar Voto
+                </button>
+                <button class="btn-primary" style="width:auto; padding:15px 30px; background:#0033A0;" onclick="abrirModalClaves()">
+                    <i class="fa-solid fa-key"></i> Ver Claves de OPT
+                </button>
+            </div>
         `;
-    } else if (currentUser.rol === 'DIRECTOR') {
+    } else {
+        // Paneles para Observatorio, Despacho, Presidencia
         contentDiv.innerHTML = `
-            <h3 style="margin-bottom:15px; color:#0033A0;">Panel del Director</h3>
-            <p style="margin-bottom:15px; font-size:14px;">Gestión para: <b>${currentUser.estado || 'Nacional'}</b></p>
-            <button class="btn-primary" style="margin-bottom:10px;" onclick="abrirModalCargaVoto()">
-                <i class="fa-solid fa-check-circle"></i> Cargar Voto
-            </button>
-            <button class="btn-primary" style="background:#0033A0;" onclick="abrirModalClaves()">
-                <i class="fa-solid fa-key"></i> Ver Claves de Jefes de OPT
-            </button>
+            <h3 style="margin-bottom:15px; color:#0033A0; text-align:center;">Panel de ${currentUser.rol}</h3>
+            <div style="display:flex; gap:10px; justify-content:center;">
+                <button class="btn-primary" style="width:auto; padding:15px 30px; background:#0033A0;" onclick="alert('Estadísticas en construcción.')">Ver Estadísticas Globales</button>
+            </div>
         `;
     }
 }
@@ -232,7 +219,7 @@ function guardarVotoReal() {
         if(data.ok) {
             alert("¡Voto guardado en Google Sheets con éxito!");
             cerrarModal('modal-carga');
-            cargarDashboard();
+            cargarDashboard(); // Actualiza el contador de votos
         } else {
             alert("Error al guardar: " + data.error);
         }
