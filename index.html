@@ -168,18 +168,27 @@
 
                 <div id="role-content"><p style="text-align: center; color: #666;">Seleccione una opción para comenzar.</p></div>
 
-                <div id="charts-container" style="display:none; margin-top:20px;">
+                <!-- CONTENEDOR DE GRÁFICOS CON ALTURA FIJA (EL ARREGLO ESTÁ AQUÍ) -->
+                <div id="charts-container" style="display:none; margin-top:20px; background:white; padding:20px; border-radius:10px; box-shadow:0 2px 5px rgba(0,0,0,0.05);">
                     <h3 style="text-align:center; color:#0033A0; margin-bottom:15px;">Avance por Estado</h3>
-                    <canvas id="chartEstados" style="max-height: 300px;"></canvas>
-                    <h3 style="text-align:center; color:#0033A0; margin-top:30px; margin-bottom:15px;">Avance por Dirección</h3>
-                    <canvas id="chartDirecciones" style="max-height: 300px;"></canvas>
-                    <h3 style="text-align:center; color:#0033A0; margin-top:30px; margin-bottom:15px;">Curva de Rendimiento (Votos por Hora)</h3>
-                    <canvas id="chartHoras" style="max-height: 250px;"></canvas>
+                    <div style="position: relative; height: 350px; width: 100%;">
+                        <canvas id="chartEstados"></canvas>
+                    </div>
+                    
+                    <h3 style="text-align:center; color:#0033A0; margin-top:40px; margin-bottom:15px;">Avance por Dirección</h3>
+                    <div style="position: relative; height: 350px; width: 100%;">
+                        <canvas id="chartDirecciones"></canvas>
+                    </div>
+                    
+                    <h3 style="text-align:center; color:#0033A0; margin-top:40px; margin-bottom:15px;">Curva de Rendimiento (Votos por Hora)</h3>
+                    <div style="position: relative; height: 250px; width: 100%;">
+                        <canvas id="chartHoras"></canvas>
+                    </div>
                 </div>
             </main>
         </div>
     </div>
 
-    <script src="app.js?v=20261018-13400"></script>
+    <script src="app.js?v=20261018-14000"></script>
 </body>
 </html>
