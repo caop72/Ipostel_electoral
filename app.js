@@ -1,221 +1,231 @@
-// =================================================================
-// CONFIGURACIÓN GLOBAL
-// =================================================================
-const ID_HOJA = '12fFo_WIsU9NwH4kaHw3eccpwByP4gBZhfKRu57OTLE4';
-const CLAVE_INICIAL = 'Ipostel';
+// CONFIGURACIÓN
+const API_URL = 'https://script.google.com/macros/s/AKfycbyh0dzss884hspHxQ-T90kusjvwAksXIrQgJaA9Ge25TCAfnBxxyykfe73bJI14upBM/exec';
+let currentUser = null;
+let currentToken = null;
 
-// =================================================================
-// ENRUTADOR PRINCIPAL
-// =================================================================
-function doGet(e) {
-  return ContentService.createTextOutput(JSON.stringify({ ok: true, message: 'API funcionando.' })).setMimeType(ContentService.MimeType.JSON);
+// --- NAVEGACIÓN Y PESTAÑAS ---
+function showScreen(screenId) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(screenId).classList.add('active');
 }
 
-function doPost(e) {
-  try {
-    let parametros = {};
-    if (e.postData && e.postData.contents) {
-      parametros = JSON.parse(e.postData.contents);
+function switchTab(tabName) {
+    // Quitar clase activa a todos los botones y formularios
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.login-form').forEach(f => f.classList.remove('active'));
+    
+    // Activar el botón y formulario seleccionado
+    const btn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.textContent.toLowerCase().includes(tabName === 'altos-cargos' ? 'altos' : 'directores'));
+    if(btn) btn.classList.add('active');
+    
+    const formId = tabName === 'altos-cargos' ? 'form-altos' : 'form-directores';
+    document.getElementById(formId).classList.add('active');
+}
+
+// --- LOGIN ---
+function handleLogin(event, tipo) {
+    event.preventDefault();
+    let payload = { accion: 'login', tipo: tipo };
+
+    if(tipo === 'altos') {
+        payload.rol = document.getElementById('rol-alto').value;
+        payload.clave = document.getElementById('pass-alto').value;
+        if(!payload.rol) { alert('Por favor seleccione un rol.'); return; }
     } else {
-      parametros = e.parameter;
+        payload.rol = document.getElementById('rol-director').value;
+        payload.correo = document.getElementById('correo-director').value;
+        payload.clave = document.getElementById('pass-director').value;
+        if(!payload.rol || !payload.correo) { alert('Seleccione estado y correo.'); return; }
     }
 
-    const accion = parametros.accion;
-    let usuario = null;
-    
-    // Validar token (excepto en login)
-    if (accion !== 'login') {
-      usuario = validarToken_(parametros.token);
-      if (!usuario) return respuestaJSON_({ ok: false, error: 'Sesión expirada o inválida.' });
-    }
-    
-    switch (accion) {
-      case 'login': return login_(parametros);
-      case 'cambiarClave': return cambiarClave_(parametros);
-      case 'cargarVoto': return cargarVoto_(parametros, usuario);
-      case 'obtenerDashboard': return obtenerDashboard_(usuario);
-      case 'generarCSV': return generarCSV_(parametros, usuario);
-      default: return respuestaJSON_({ ok: false, error: 'Acción no válida.' });
-    }
-  } catch (error) {
-    return respuestaJSON_({ ok: false, error: error.message });
-  }
-}
-
-// =================================================================
-// UTILIDADES
-// =================================================================
-function respuestaJSON_(data) {
-  return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);
-}
-
-function getHoja_(nombre) {
-  return SpreadsheetApp.openById(ID_HOJA).getSheetByName(nombre);
-}
-
-function validarToken_(token) {
-  if (!token) return null;
-  const hoja = getHoja_('SESIONES');
-  if (!hoja) return null;
-  const data = hoja.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][1] === token && data[i][4] === 'ACTIVA') {
-      if (data[i][3] === 'PERMANENTE' || new Date(data[i][3]) > new Date()) {
-        return { correo: data[i][0], nombre: data[i][2], rol: data[i][5], estado: data[i][6], clave: data[i][7] };
-      }
-    }
-  }
-  return null;
-}
-
-function crearSesion_(correo, nombre, rol, estado, clave) {
-  let hoja = getHoja_('SESIONES');
-  if (!hoja) {
-    const ss = SpreadsheetApp.openById(ID_HOJA);
-    hoja = ss.insertSheet('SESIONES');
-    hoja.appendRow(['Correo', 'Token', 'Nombre', 'Expiracion', 'Estado', 'Rol', 'Estado_Asignado', 'Clave']);
-  }
-  const token = Utilities.getUuid();
-  hoja.appendRow([correo, token, nombre, 'PERMANENTE', 'ACTIVA', rol, estado, clave]);
-  return token;
-}
-
-// =================================================================
-// LÓGICA DE NEGOCIO
-// =================================================================
-
-function login_(params) {
-  const { tipo, correo, clave, rol } = params;
-  
-  // LOGIN DE ALTOS CARGOS (Presidencia, Despacho, Observatorio)
-  if (tipo === 'altos') {
-    if (clave === CLAVE_INICIAL) {
-      return respuestaJSON_({ ok: true, requiereCambio: true, mensaje: 'Debe cambiar su clave.', correo: 'admin_' + rol });
-    } else {
-      // Creamos la sesión directa
-      const token = crearSesion_('admin@ipostel.gob.ve', 'Usuario ' + rol, rol, 'NACIONAL', clave);
-      return respuestaJSON_({ ok: true, token: token, usuario: { nombre: 'Usuario ' + rol, rol: rol } });
-    }
-  } 
-  
-  // LOGIN DE DIRECTORES
-  if (tipo === 'director') {
-    const hoja = getHoja_('USUARIOS');
-    if (!hoja) return respuestaJSON_({ ok: false, error: 'Base de datos no configurada.' });
-    
-    const data = hoja.getDataRange().getValues();
-    let usuarioEncontrado = null;
-    let filaUsuario = -1;
-    
-    // Buscar si el usuario (correo) existe en la columna 3 (índice 2)
-    for (let i = 1; i < data.length; i++) {
-      if (data[i][2] === correo) { // Columna C: Correo
-        usuarioEncontrado = data[i];
-        filaUsuario = i + 1;
-        break;
-      }
-    }
-    
-    if (usuarioEncontrado) {
-      // El usuario existe. Verificamos la clave (Columna H: Clave_Hash / Temporal)
-      // Nota: En este código la clave se guarda en la columna 8 (índice 7)
-      if (usuarioEncontrado[7] == clave || (usuarioEncontrado[7] == '' && clave === CLAVE_INICIAL)) {
-        if (clave === CLAVE_INICIAL) {
-          return respuestaJSON_({ ok: true, requiereCambio: true, mensaje: 'Debe cambiar su clave inicial.', correo: correo });
+    // Enviamos los datos al backend de Google
+    fetch(API_URL, {
+        method: 'POST',
+        body: new URLSearchParams(payload) // Usamos FormData para evitar problemas de CORS
+    })
+    .then(res => res.json())
+    .then(data => {
+        if(data.ok && data.requiereCambio) {
+            currentUser = { rol: payload.rol, nombre: payload.correo || 'admin_'+payload.rol, estado: payload.rol };
+            currentUser.correo = data.correo || payload.correo;
+            showScreen('change-pass-screen');
+        } else if (data.ok) {
+            currentToken = data.token;
+            currentUser = data.usuario;
+            loginSuccess();
         } else {
-          const token = crearSesion_(correo, usuarioEncontrado[1], 'DIRECTOR', usuarioEncontrado[4], clave);
-          return respuestaJSON_({ ok: true, token: token, usuario: { nombre: usuarioEncontrado[1], rol: 'DIRECTOR', estado: usuarioEncontrado[4] } });
+            alert('Error: ' + data.error);
         }
-      } else {
-        return respuestaJSON_({ ok: false, error: 'Clave incorrecta.' });
-      }
+    })
+    .catch(err => {
+        alert("Error de conexión. Revisa que el Apps Script esté implementado como 'Cualquier persona'.");
+        console.error(err);
+    });
+}
+
+// --- CAMBIO DE CLAVE ---
+function handleChangePass(event) {
+    event.preventDefault();
+    const newPass = document.getElementById('new-pass').value;
+    
+    if(newPass.length === 4 && !isNaN(newPass)) {
+        const payload = { accion: 'cambiarClave', correo: currentUser.correo, nuevaClave: newPass };
+
+        fetch(API_URL, {
+            method: 'POST',
+            body: new URLSearchParams(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.ok) {
+                alert('Clave guardada correctamente. Iniciando sesión...');
+                // Hacemos login automático con la nueva clave
+                let loginPayload = { accion: 'login', tipo: currentUser.rol === 'DIRECTOR' ? 'director' : 'altos', correo: currentUser.correo, rol: currentUser.estado, clave: newPass };
+                fetch(API_URL, { method: 'POST', body: new URLSearchParams(loginPayload) })
+                .then(res => res.json())
+                .then(data2 => {
+                    if(data2.ok) {
+                        currentToken = data2.token;
+                        currentUser = data2.usuario;
+                        loginSuccess();
+                    } else {
+                        alert('Error al iniciar sesión automáticamente.');
+                        logout();
+                    }
+                });
+            } else {
+                alert('Error al guardar clave: ' + data.error);
+            }
+        })
+        .catch(err => alert("Error de red al guardar clave."));
     } else {
-      // El usuario NO existe. Si la clave es Ipostel, lo registramos.
-      if (clave === CLAVE_INICIAL) {
-        // Creamos la fila con los datos mínimos
-        hoja.appendRow(['', '', correo, 'DIRECTOR', rol, 'TODAS', 'TODAS', '', CLAVE_INICIAL, 'ACTIVO', 'AUTOREGISTRO', new Date()]);
-        return respuestaJSON_({ ok: true, requiereCambio: true, mensaje: 'Registro exitoso. Cambie su clave.', correo: correo });
-      } else {
-        return respuestaJSON_({ ok: false, error: 'Usuario no registrado. Regístrese usando la clave Ipostel.' });
-      }
+        alert('La clave debe tener exactamente 4 dígitos numéricos.');
     }
-  }
 }
 
-function cambiarClave_(params) {
-  const { correo, nuevaClave } = params;
-  
-  const hoja = getHoja_('USUARIOS');
-  const data = hoja.getDataRange().getValues();
-  let encontrado = false;
-  
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][2] === correo) { // Columna C: Correo
-      hoja.getRange(i + 1, 8).setValue(nuevaClave); // Guardamos en columna H (Clave_Hash)
-      encontrado = true;
-      break;
-    }
-  }
-  
-  if (!encontrado && correo.startsWith('admin_')) {
-    hoja.appendRow(['', 'Usuario ' + correo, correo, correo.replace('admin_', ''), 'NACIONAL', 'TODAS', 'TODAS', nuevaClave, '', 'ACTIVO', 'SISTEMA', new Date()]);
-  }
-  
-  return respuestaJSON_({ ok: true, mensaje: 'Clave actualizada.' });
+function loginSuccess() {
+    document.getElementById('user-name-display').textContent = `${currentUser.nombre}`;
+    showScreen('dashboard-screen');
+    cargarDashboard();
 }
 
-function cargarVoto_(params, usuario) {
-  const { cedula_votante, nombre_votante, foto_url } = params;
-  const hoja = getHoja_('REGISTRO_VOTOS');
-  
-  const data = hoja.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][1] == cedula_votante && data[i][11] !== 'INACTIVO') {
-      return respuestaJSON_({ ok: false, error: 'Esta cédula ya votó.' });
-    }
-  }
-  
-  hoja.appendRow([
-    Utilities.getUuid(), cedula_votante, nombre_votante,
-    usuario.estado || 'NACIONAL', 'TODAS', usuario.estado,
-    'NO', '', foto_url || '',
-    usuario.correo, usuario.rol, 'VALIDADO', new Date()
-  ]);
-  
-  return respuestaJSON_({ ok: true, mensaje: 'Voto registrado.' });
+function logout() {
+    currentUser = null;
+    currentToken = null;
+    document.getElementById('new-pass').value = '';
+    showScreen('login-screen');
 }
 
-function obtenerDashboard_(usuario) {
-  const hojaPadron = getHoja_('PADRON');
-  const hojaVotos = getHoja_('REGISTRO_VOTOS');
-  
-  let totalPadron = 0;
-  if (hojaPadron) {
-    totalPadron = hojaPadron.getDataRange().getValues().length - 1;
-  }
-  
-  const votos = hojaVotos.getDataRange().getValues();
-  let totalVotos = 0;
-  
-  for (let i = 1; i < votos.length; i++) {
-    if (votos[i][11] !== 'INACTIVO') {
-      if (usuario.rol === 'DIRECTOR') {
-        if (usuario.estado === votos[i][3] || votos[i][5] === usuario.estado) totalVotos++;
-      } else {
-        totalVotos++;
-      }
-    }
-  }
-  
-  return respuestaJSON_({ ok: true, data: { totalPadron: totalPadron, totalVotos: totalVotos } });
+// --- DASHBOARD ---
+function cargarDashboard() {
+    fetch(API_URL, {
+        method: 'POST',
+        body: new URLSearchParams({ accion: 'obtenerDashboard', token: currentToken })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if(data.ok) {
+            document.querySelectorAll('.stat-number')[0].textContent = data.data.totalPadron;
+            document.querySelectorAll('.stat-number')[1].textContent = data.data.totalVotos;
+        }
+    });
+    updateDashboardView();
 }
 
-function generarCSV_(params, usuario) {
-  const data = getHoja_('REGISTRO_VOTOS').getDataRange().getValues();
-  let csv = 'Cedula,Nombre,Estado,Estatus,Fecha\n';
-  for (let i = 1; i < data.length; i++) {
-    csv += `"${data[i][1]}","${data[i][2]}","${data[i][3]}","${data[i][11]}","${data[i][12]}"\n`;
-  }
-  const archivo = DriveApp.createFile(Utilities.newBlob(csv, 'text/csv', 'Reporte.csv'));
-  return respuestaJSON_({ ok: true, url: archivo.getUrl() });
+function updateDashboardView() {
+    const contentDiv = document.getElementById('role-content');
+    
+    if(currentUser.rol === 'OBSERVATORIO' || currentUser.rol === 'PRESIDENCIA' || currentUser.rol === 'DESPACHO') {
+        contentDiv.innerHTML = `
+            <h3 style="margin-bottom:15px; color:#0033A0;">Panel de ${currentUser.rol}</h3>
+            <button class="btn-primary" style="margin-bottom:10px; background:#0033A0;" onclick="alert('Estadísticas en construcción.')">Ver Estadísticas Globales</button>
+        `;
+    } else if (currentUser.rol === 'DIRECTOR') {
+        contentDiv.innerHTML = `
+            <h3 style="margin-bottom:15px; color:#0033A0;">Panel del Director</h3>
+            <p style="margin-bottom:15px; font-size:14px;">Gestión para: <b>${currentUser.estado || 'Nacional'}</b></p>
+            <button class="btn-primary" style="margin-bottom:10px;" onclick="abrirModalCargaVoto()">
+                <i class="fa-solid fa-check-circle"></i> Cargar Voto
+            </button>
+            <button class="btn-primary" style="background:#0033A0;" onclick="abrirModalClaves()">
+                <i class="fa-solid fa-key"></i> Ver Claves de Jefes de OPT
+            </button>
+        `;
+    }
+}
+
+// --- MODALES ---
+function abrirModalCargaVoto() {
+    let modalHTML = `
+        <div id="modal-carga" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
+            <div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:400px;">
+                <h3 style="margin-bottom:15px; color:#0033A0;">Registrar Voto</h3>
+                <div class="input-group">
+                    <label>Cédula del Votante:</label>
+                    <input type="text" id="voto-cedula" placeholder="Ej: 12345678">
+                </div>
+                <div class="input-group">
+                    <label>Nombre (Opcional):</label>
+                    <input type="text" id="voto-nombre" placeholder="Nombre del votante">
+                </div>
+                <button class="btn-primary" onclick="guardarVotoReal()">Guardar Voto</button>
+                <button onclick="cerrarModal('modal-carga')" style="width:100%; margin-top:10px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cancelar</button>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+function abrirModalClaves() {
+    let modalHTML = `
+        <div id="modal-claves" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
+            <div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:400px; max-height: 80vh; overflow-y: auto;">
+                <h3 style="margin-bottom:15px; color:#0033A0;">Claves de OPTs</h3>
+                <p style="font-size:14px; margin-bottom:15px;">Entregue estas claves vía WhatsApp a sus Jefes de OPT.</p>
+                <table style="width:100%; border-collapse: collapse; font-size:12px;">
+                    <tr style="background:#f0f0f0;">
+                        <th style="padding:5px; border:1px solid #ddd;">OPT</th>
+                        <th style="padding:5px; border:1px solid #ddd;">Clave</th>
+                    </tr>
+                    <tr><td style="padding:5px; border:1px solid #ddd;">OPT Central</td><td style="padding:5px; border:1px solid #ddd; font-weight:bold;">1234</td></tr>
+                </table>
+                <button onclick="cerrarModal('modal-claves')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+function cerrarModal(idModal) {
+    const modal = document.getElementById(idModal);
+    if(modal) modal.remove();
+}
+
+function guardarVotoReal() {
+    const cedula = document.getElementById('voto-cedula').value;
+    const nombre = document.getElementById('voto-nombre').value;
+    if(!cedula) { alert("Debe ingresar una cédula."); return; }
+
+    const payload = {
+        accion: 'cargarVoto',
+        token: currentToken,
+        cedula_votante: cedula,
+        nombre_votante: nombre
+    };
+
+    fetch(API_URL, {
+        method: 'POST',
+        body: new URLSearchParams(payload)
+    })
+    .then(res => res.json())
+    .then(data => {
+        if(data.ok) {
+            alert("¡Voto guardado en Google Sheets con éxito!");
+            cerrarModal('modal-carga');
+            cargarDashboard();
+        } else {
+            alert("Error al guardar: " + data.error);
+        }
+    })
+    .catch(err => alert("Error de red al guardar voto."));
 }
