@@ -2,7 +2,7 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbyh0dzss884hspHxQ-T90ku
 let currentUser = null;
 let currentToken = null;
 
-// --- UI ---
+// --- UI Y PESTAÑAS ---
 function showScreen(screenId) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(screenId).classList.add('active');
@@ -10,9 +10,34 @@ function showScreen(screenId) {
 
 function switchTab(tabName) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    event.target.classList.add('active');
+    if (event && event.target) event.target.classList.add('active');
     document.querySelectorAll('.login-form').forEach(f => f.classList.remove('active'));
-    document.getElementById(`form-${tabName}`).classList.add('active');
+    const formId = tabName === 'altos-cargos' ? 'form-altos' : (tabName === 'directores' ? 'form-directores' : 'form-jefes-opt');
+    document.getElementById(formId).classList.add('active');
+    
+    // Si es la pestaña de Jefes de OPT, llenamos el desplegable
+    if (tabName === 'jefes-opt') {
+        cargarOpcionesOPT();
+    }
+}
+
+// Cargar las OPTs dinámicamente desde el backend
+function cargarOpcionesOPT() {
+    const select = document.getElementById('opt-seleccion');
+    if (select.options.length > 1) return; // Si ya está cargado, no hacemos nada
+
+    fetch(API_URL, { method: 'POST', body: new URLSearchParams({ accion: 'obtenerOPTs' }) })
+    .then(res => res.json())
+    .then(data => {
+        if(data.ok) {
+            data.data.forEach(opt => {
+                let option = document.createElement('option');
+                option.value = opt;
+                option.textContent = opt;
+                select.appendChild(option);
+            });
+        }
+    });
 }
 
 // --- LOGIN ---
@@ -24,18 +49,22 @@ function handleLogin(event, tipo) {
         payload.rol = document.getElementById('rol-alto').value;
         payload.clave = document.getElementById('pass-alto').value;
         if(!payload.rol) { alert('Por favor seleccione un rol.'); return; }
-    } else {
+    } else if (tipo === 'director') {
         payload.rol = document.getElementById('rol-director').value;
         payload.correo = document.getElementById('correo-director').value;
         payload.clave = document.getElementById('pass-director').value;
         if(!payload.rol || !payload.correo) { alert('Seleccione estado y correo.'); return; }
+    } else if (tipo === 'opt') {
+        payload.rol = document.getElementById('opt-seleccion').value;
+        payload.clave = document.getElementById('pass-opt').value;
+        if(!payload.rol) { alert('Seleccione su OPT.'); return; }
     }
 
     fetch(API_URL, { method: 'POST', body: new URLSearchParams(payload) })
     .then(res => res.json())
     .then(data => {
         if(data.ok && data.requiereCambio) {
-            currentUser = { rol: payload.rol, nombre: payload.correo || 'admin_'+payload.rol, estado: payload.rol };
+            currentUser = { rol: payload.rol, nombre: payload.correo || payload.rol, estado: payload.rol };
             currentUser.correo = data.correo || payload.correo;
             showScreen('change-pass-screen');
         } else if (data.ok) {
@@ -61,7 +90,7 @@ function handleChangePass(event) {
         .then(data => {
             if(data.ok) {
                 alert('Clave guardada correctamente.');
-                let loginPayload = { accion: 'login', tipo: currentUser.rol === 'DIRECTOR' ? 'director' : 'altos', correo: currentUser.correo, rol: currentUser.estado, clave: newPass };
+                let loginPayload = { accion: 'login', tipo: currentUser.rol === 'DIRECTOR' ? 'director' : (currentUser.rol === 'JEFE_OPT' ? 'opt' : 'altos'), correo: currentUser.correo, rol: currentUser.estado, clave: newPass };
                 fetch(API_URL, { method: 'POST', body: new URLSearchParams(loginPayload) })
                 .then(res => res.json())
                 .then(data2 => {
@@ -114,25 +143,30 @@ function updateDashboardView() {
                 </button>
             </div>
         `;
+    } else if (currentUser.rol === 'JEFE_OPT') {
+        contentDiv.innerHTML = `
+            <h3 style="margin-bottom:15px; color:#0033A0; text-align:center;">Panel de Jefe de OPT</h3>
+            <p style="margin-bottom:20px; font-size:14px; text-align:center;">Gestión para: <b>${currentUser.estado}</b></p>
+            <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+                <button class="btn-primary" style="width:auto; padding:15px 30px;" onclick="abrirModalCargaVoto()">
+                    <i class="fa-solid fa-check-circle"></i> Cargar Voto
+                </button>
+            </div>
+        `;
     } else {
-        // Para OBSERVATORIO, PRESIDENCIA, DESPACHO
         contentDiv.innerHTML = `
             <h3 style="margin-bottom:15px; color:#0033A0; text-align:center;">Panel de ${currentUser.rol}</h3>
             <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
                 <button class="btn-primary" style="width:auto; padding:15px 30px; background:#dc3545;" onclick="abrirModalNovedades()">
                     <i class="fa-solid fa-exclamation-triangle"></i> Gestionar Novedades
                 </button>
-                <button class="btn-primary" style="width:auto; padding:15px 30px; background:#0033A0;" onclick="alert('Módulo de estadísticas en construcción.')">
-                    <i class="fa-solid fa-chart-line"></i> Ver Estadísticas
-                </button>
             </div>
         `;
     }
 }
 
-// --- MODAL DE CARGA (Ya existente) ---
+// --- MODAL DE CARGA (Directores y Jefes de OPT) ---
 function abrirModalCargaVoto() {
-    // ... (El mismo código que tenías antes para el modal de carga) ...
     let modalHTML = `
         <div id="modal-carga" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
             <div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:400px;">
@@ -167,14 +201,12 @@ function abrirModalCargaVoto() {
     document.body.insertAdjacentHTML('beforeend', modalHTML);
 }
 
-// --- NUEVO: MODAL DE NOVEDADES PARA OBSERVATORIO ---
+// --- MODAL DE NOVEDADES (Observatorio) ---
 function abrirModalNovedades() {
     let modalHTML = `
         <div id="modal-novedades" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center; z-index:1000;">
             <div style="background:white; padding:20px; border-radius:10px; width:95%; max-width:800px; max-height: 90vh; overflow-y: auto;">
                 <h3 style="margin-bottom:15px; color:#dc3545;">Gestión de Novedades</h3>
-                <p style="font-size:14px; margin-bottom:15px;">Revise los casos que no están en el padrón. Valide o Inactive.</p>
-                
                 <table style="width:100%; border-collapse: collapse; font-size:12px;" id="tabla-novedades">
                     <thead>
                         <tr style="background:#f0f0f0;">
@@ -186,10 +218,9 @@ function abrirModalNovedades() {
                         </tr>
                     </thead>
                     <tbody id="tbody-novedades">
-                        <tr><td colspan="5" style="text-align:center; padding:10px;">Cargando novedades...</td></tr>
+                        <tr><td colspan="5" style="text-align:center; padding:10px;">Cargando...</td></tr>
                     </tbody>
                 </table>
-                
                 <button onclick="cerrarModal('modal-novedades')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button>
             </div>
         </div>
@@ -227,19 +258,93 @@ function cargarNovedades() {
 
 function gestionarNovedad(fila, accion) {
     if(!confirm(`¿Está seguro de ${accion} esta novedad?`)) return;
-
     fetch(API_URL, { method: 'POST', body: new URLSearchParams({ accion: 'gestionarNovedad', token: currentToken, fila: fila, accion: accion }) })
     .then(res => res.json())
     .then(data => {
-        if(data.ok) {
-            alert(data.mensaje);
-            cargarNovedades(); // Recargar la tabla
-            cargarDashboard(); // Actualizar contadores
+        if(data.ok) { alert(data.mensaje); cargarNovedades(); cargarDashboard(); }
+        else { alert("Error: " + data.error); }
+    });
+}
+
+// --- FUNCIONES DE APOYO ---
+function buscarEnPadron() {
+    const cedula = document.getElementById('voto-cedula').value;
+    if(!cedula || cedula.length < 5) return;
+    fetch(API_URL, { method: 'POST', body: new URLSearchParams({ accion: 'consultarPadron', token: currentToken, cedula: cedula }) })
+    .then(res => res.json())
+    .then(data => {
+        const infoDiv = document.getElementById('info-padron');
+        const grupoNombre = document.getElementById('grupo-nombre');
+        const grupoCommit = document.getElementById('grupo-commit');
+        if(data.ok && data.encontrado) {
+            infoDiv.style.display = 'block';
+            document.getElementById('info-nombre').textContent = data.datos.nombre;
+            document.getElementById('info-cargo').textContent = data.datos.cargo;
+            document.getElementById('info-ubicacion').textContent = data.datos.ubicacion;
+            grupoNombre.style.display = 'none';
+            grupoCommit.style.display = 'none';
         } else {
-            alert("Error: " + data.error);
+            infoDiv.style.display = 'none';
+            grupoNombre.style.display = 'block';
+            grupoCommit.style.display = 'block';
         }
     });
 }
 
-// --- RESTO DE FUNCIONES (guardarVotoReal, buscarEnPadron, etc.) ---
-// ... (Pega aquí las funciones que ya tenías: buscarEnPadron, guardarVotoReal, abrirModalClaves, cerrarModal) ...
+function guardarVotoReal() {
+    const cedula = document.getElementById('voto-cedula').value;
+    const nombre = document.getElementById('voto-nombre').value;
+    const commit = document.getElementById('voto-commit').value;
+    const fotoInput = document.getElementById('voto-foto');
+    if(!cedula) { alert("Debe ingresar una cédula."); return; }
+
+    const enviarDatos = (fotoUrl) => {
+        const payload = { accion: 'cargarVoto', token: currentToken, cedula_votante: cedula, nombre_votante: nombre, commit_novedad: commit, foto_url: fotoUrl };
+        fetch(API_URL, { method: 'POST', body: new URLSearchParams(payload) })
+        .then(res => res.json())
+        .then(data => {
+            if(data.ok) { alert("✅ " + data.mensaje); cerrarModal('modal-carga'); cargarDashboard(); }
+            else {
+                if(data.requiereCommit) {
+                    document.getElementById('grupo-nombre').style.display = 'block';
+                    document.getElementById('grupo-commit').style.display = 'block';
+                    alert("⚠️ " + data.error);
+                } else { alert("Error: " + data.error); }
+            }
+        });
+    };
+
+    if (fotoInput.files.length > 0) {
+        const file = fotoInput.files[0];
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const base64Data = e.target.result.split(',')[1];
+            fetch(API_URL, { method: 'POST', body: new URLSearchParams({ accion: 'subirFoto', token: currentToken, base64: base64Data, nombre: 'voto_' + cedula + '.jpg' }) })
+            .then(res => res.json())
+            .then(dataFoto => { if(dataFoto.ok) enviarDatos(dataFoto.url); else { alert("Error al subir foto: " + dataFoto.error); enviarDatos(''); } });
+        };
+        reader.readAsDataURL(file);
+    } else { enviarDatos(''); }
+}
+
+function abrirModalClaves() {
+    let modalHTML = `
+        <div id="modal-claves" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
+            <div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:400px;">
+                <h3 style="margin-bottom:15px; color:#0033A0;">Claves de OPTs</h3>
+                <p style="font-size:14px; margin-bottom:15px;">Entregue estas claves vía WhatsApp a sus Jefes de OPT.</p>
+                <table style="width:100%; border-collapse: collapse; font-size:12px;">
+                    <tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">OPT</th><th style="padding:5px; border:1px solid #ddd;">Clave</th></tr>
+                    <tr><td style="padding:5px; border:1px solid #ddd;">OPT Central</td><td style="padding:5px; border:1px solid #ddd; font-weight:bold;">1234</td></tr>
+                </table>
+                <button onclick="cerrarModal('modal-claves')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+function cerrarModal(idModal) {
+    const modal = document.getElementById(idModal);
+    if(modal) modal.remove();
+}
