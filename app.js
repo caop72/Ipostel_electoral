@@ -348,3 +348,20 @@ function cerrarModal(idModal) {
     const modal = document.getElementById(idModal);
     if(modal) modal.remove();
 }
+function obtenerOPTs_(params, usuario) {
+  const hojaPadron = getHoja_('PADRON');
+  if (!hojaPadron) return respuestaJSON_({ ok: false, error: 'Hoja de padrón no encontrada.' });
+  
+  const data = hojaPadron.getDataRange().getValues();
+  const optsUnicas = new Set();
+  
+  // Columna E (índice 4) es la OPT según tu padrón
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][4]) {
+      optsUnicas.add(data[i][4]);
+    }
+  }
+  
+  // Convertimos el Set a un array ordenado
+  return respuestaJSON_({ ok: true, data: Array.from(optsUnicas).sort() });
+}
