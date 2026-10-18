@@ -1,61 +1,17 @@
-const API_URL = 'https://script.google.com/macros/s/AKfycbyh0dzss884hspHxQ-T90kusjvwAksXIrQgJaA9Ge25TCAfnBxxyykfe73bJI14upBM/exec';
+const API_URL = 'https://blue-river-9145.ipostel-monitor.workers.dev';
 let currentUser = null;
 let currentToken = null;
 
 // Función que envía datos a Google usando un iframe oculto (sin CORS)
 function enviarAScript(datos, callback) {
-    const idIframe = 'iframe_' + Date.now();
-    const iframe = document.createElement('iframe');
-    iframe.name = idIframe;
-    iframe.style.display = 'none';
-    iframe.id = idIframe;
-    document.getElementById('hidden-forms').appendChild(iframe);
-
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = API_URL;
-    form.target = idIframe;
-    form.style.display = 'none';
-
-    // Añadir campos al formulario
-    for (const key in datos) {
-        if (datos.hasOwnProperty(key)) {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = key;
-            input.value = datos[key];
-            form.appendChild(input);
-        }
-    }
-
-    document.getElementById('hidden-forms').appendChild(form);
-    form.submit();
-
-    // Esperar a que el iframe cargue (respuesta de Google)
-    iframe.onload = function() {
-        try {
-            const respuesta = iframe.contentDocument.body.innerText;
-            const json = JSON.parse(respuesta);
-            callback(json);
-        } catch (e) {
-            // Si no es JSON, puede ser un error
-            callback({ ok: false, error: 'Error de respuesta' });
-        }
-        // Limpiar el iframe y formulario
-        setTimeout(() => {
-            iframe.remove();
-            form.remove();
-        }, 500);
-    };
-
-    // Timeout de seguridad
-    setTimeout(() => {
-        if (document.getElementById(idIframe)) {
-            iframe.remove();
-            form.remove();
-            callback({ ok: false, error: 'Timeout de conexión' });
-        }
-    }, 10000);
+    fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(datos)
+    })
+    .then(res => res.json())
+    .then(data => callback(data))
+    .catch(err => callback({ ok: false, error: 'Error de conexión: ' + err.message }));
 }
 
 // --- UI Y PESTAÑAS ---
