@@ -151,14 +151,8 @@ function logout() {
     showScreen('login-screen');
 }
 
-function cargarDashboard(filtros = {}) {
-    const filtroEstado = filtros.estado || '';
-    
-    enviarAScript({ 
-        accion: 'obtenerEstadisticas', 
-        token: currentToken, 
-        filtroEstado: filtroEstado 
-    }, function(data) {
+function cargarDashboard() {
+    enviarAScript({ accion: 'obtenerEstadisticas', token: currentToken }, function(data) {
         if (data.ok) {
             document.querySelectorAll('.stat-number')[0].textContent = data.data.totalPadron;
             document.querySelectorAll('.stat-number')[1].textContent = data.data.totalVotos;
@@ -167,76 +161,45 @@ function cargarDashboard(filtros = {}) {
             document.querySelectorAll('.stat-number')[3].textContent = data.data.totalNovedades;
             
             if (currentUser.rol !== 'JEFE_OPT') {
-                document.getElementById('filtros-container').style.display = 'block';
                 document.getElementById('charts-container').style.display = 'block';
-                llenarFiltros(data.data, filtroEstado);
-                dibujarGraficos(data.data, filtroEstado);
+                dibujarGraficos(data.data);
             }
         }
     });
     updateDashboardView();
 }
 
-function llenarFiltros(data, filtroEstado) {
-    const selectEstado = document.getElementById('filtro-estado');
-    
-    if (currentUser.rol === 'GERENTE_ESTADO') {
-        selectEstado.innerHTML = `<option value="${currentUser.estado}">${currentUser.estado}</option>`;
-        return;
-    }
-    
-    if (currentUser.rol === 'DIRECTOR') {
-        const estadosAsignados = mapaDirectores[currentUser.estado] || [];
-        if (selectEstado.options.length <= 1) {
-            estadosAsignados.forEach(e => {
-                let o = document.createElement('option');
-                o.value = e;
-                o.textContent = e;
-                selectEstado.appendChild(o);
-            });
-        }
-        return;
-    }
-    
-    if (selectEstado.options.length <= 1) {
-        const estados = Object.keys(data.padronPorEstado).sort();
-        estados.forEach(e => {
-            let o = document.createElement('option');
-            o.value = e;
-            o.textContent = e;
-            selectEstado.appendChild(o);
-        });
-    }
-}
-
-function aplicarFiltros() {
-    const estado = document.getElementById('filtro-estado').value;
-    cargarDashboard({ estado: estado });
-}
-
-function limpiarFiltros() {
-    document.getElementById('filtro-estado').value = '';
-    cargarDashboard({});
-}
-
-function dibujarGraficos(data, filtroEstado) {
-    // Gráfico 1: Por Estado
-    let estados = Object.keys(data.padronPorEstado).sort();
-    if (filtroEstado) {
-        estados = [filtroEstado];
-    }
-    const padronData = estados.map(e => data.padronPorEstado[e] || 0);
-    const votosData = estados.map(e => data.votosPorEstado[e] || 0);
+function dibujarGraficos(data) {
+    // Gráfico 1: % de Participación por Estado
+    const estados = Object.keys(data.padronPorEstado).sort();
+    const participacionData = estados.map(e => {
+        const padron = data.padronPorEstado[e] || 0;
+        const votos = data.votosPorEstado[e] || 0;
+        return padron > 0 ? ((votos / padron) * 100).toFixed(1) : 0;
+    });
     
     if (chartEstados) chartEstados.destroy();
     const ctx1 = document.getElementById('chartEstados').getContext('2d');
     chartEstados = new Chart(ctx1, {
         type: 'bar',
-        data: { labels: estados, datasets: [
-            { label: 'Padrón', data: padronData, backgroundColor: 'rgba(0, 51, 160, 0.5)' },
-            { label: 'Votos', data: votosData, backgroundColor: 'rgba(200, 16, 46, 0.8)' }
-        ]},
-        options: { responsive: true, scales: { y: { beginAtZero: true } } }
+        data: { 
+            labels: estados, 
+            datasets: [{
+                label: '% Participación',
+                data: participacionData,
+                backgroundColor: 'rgba(200, 16, 46, 0.8)'
+            }]
+        },
+        options: { 
+            responsive: true, 
+            scales: { 
+                y: { 
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: { callback: function(value) { return value + '%'; } }
+                } 
+            } 
+        }
     });
     
     // Gráfico 2: Por Dirección
@@ -315,6 +278,7 @@ function updateDashboardView() {
     }
 }
 
+// --- MODALES ---
 function abrirModalCargaVoto() {
     let modalHTML = `
         <div id="modal-carga" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
