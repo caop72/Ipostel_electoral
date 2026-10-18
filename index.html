@@ -4,42 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Monitoreo Electoral - IPOSTEL</title>
-    
-    <!-- Chart.js para los gráficos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body { background-color: #f4f7f6; color: #333; padding: 20px; }
-        
         .container { max-width: 1200px; margin: 0 auto; }
         
-        /* Estilos del Header */
         header { background: white; padding: 15px 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; border-left: 5px solid #C8102E; }
         header h1 { color: #0033A0; font-size: 22px; margin-bottom: 5px; }
         header p { color: #666; font-size: 14px; }
         
-        /* Tarjetas de Estadísticas */
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-bottom: 20px; }
         .stat-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); text-align: center; }
         .stat-title { font-size: 14px; color: #666; margin-bottom: 10px; font-weight: 600; }
         .stat-number { font-size: 28px; font-weight: bold; color: #0033A0; }
-        .stat-number.green { color: #28a745; }
-        .stat-number.orange { color: #ffc107; }
-        .stat-number.red { color: #dc3545; }
         
-        /* Botones */
         .btn-primary { background-color: #C8102E; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.3s; }
         .btn-primary:hover { background-color: #a00d25; }
         
-        /* Contenedor de los gráficos (AQUÍ ESTÁ EL ARREGLO) */
         .charts-container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 30px; }
         .chart-title { text-align: center; color: #0033A0; margin-bottom: 15px; font-size: 16px; }
-        .chart-wrapper { position: relative; height: 350px; width: 100%; margin-bottom: 40px; }
-
-        /* Tabla de Por Verificar */
-        .table-container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 30px; display: none; }
-        .table-container h3 { color: #dc3545; margin-bottom: 15px; }
+        
+        .table-container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 30px; }
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
         th, td { padding: 8px; border: 1px solid #ddd; text-align: left; }
         th { background: #f0f0f0; }
@@ -48,31 +34,20 @@
         .input-group label { display: block; margin-bottom: 5px; font-size: 14px; font-weight: 600; color: #333; }
         .input-group input, .input-group textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 5px; }
         
-        /* LOGIN */
         #login-container { max-width: 400px; margin: 100px auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; }
         #login-container h2 { color: #0033A0; margin-bottom: 20px; }
-        
-        /* DASHBOARD (Oculto hasta login) */
         #dashboard-container { display: none; }
     </style>
 </head>
 <body>
 
-    <!-- PANTALLA DE LOGIN -->
     <div id="login-container">
         <h2>Sistema de Monitoreo Electoral</h2>
-        <div class="input-group">
-            <label>Usuario (Correo)</label>
-            <input type="email" id="login-correo" placeholder="correo@ejemplo.com">
-        </div>
-        <div class="input-group">
-            <label>Contraseña</label>
-            <input type="password" id="login-clave" placeholder="********">
-        </div>
+        <div class="input-group"><label>Usuario (Correo)</label><input type="email" id="login-correo" placeholder="correo@ejemplo.com"></div>
+        <div class="input-group"><label>Contraseña</label><input type="password" id="login-clave" placeholder="********"></div>
         <button class="btn-primary" style="width: 100%;" onclick="iniciarSesion()">Ingresar</button>
     </div>
 
-    <!-- DASHBOARD -->
     <div id="dashboard-container" class="container">
         <header>
             <h1>Sistema de Monitoreo Electoral</h1>
@@ -80,66 +55,42 @@
         </header>
 
         <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-title">Total Padrón</div>
-                <div class="stat-number" id="stat-padron">0</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-title">Votos Registrados</div>
-                <div class="stat-number green" id="stat-votos">0</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-title">% Participación</div>
-                <div class="stat-number orange" id="stat-participacion">0%</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-title">Novedades Pendientes</div>
-                <div class="stat-number red" id="stat-novedades">0</div>
-            </div>
+            <div class="stat-card"><div class="stat-title">Total Padrón</div><div class="stat-number" id="stat-padron">0</div></div>
+            <div class="stat-card"><div class="stat-title">Votos Registrados</div><div class="stat-number" style="color:#28a745;" id="stat-votos">0</div></div>
+            <div class="stat-card"><div class="stat-title">% Participación</div><div class="stat-number" style="color:#ffc107;" id="stat-participacion">0%</div></div>
+            <div class="stat-card"><div class="stat-title">Novedades Pendientes</div><div class="stat-number" style="color:#dc3545;" id="stat-novedades">0</div></div>
         </div>
 
-        <!-- Botones por Rol -->
         <div id="role-content" style="text-align: center; margin-bottom: 30px;"></div>
 
-        <!-- GRÁFICOS (Aquí está el contenedor que faltaba) -->
+        <!-- CONTENEDOR DE GRÁFICOS CON ALTURA FORZADA -->
         <div id="charts-container" class="charts-container" style="display: none;">
             <h3 class="chart-title">Participación por Estado (% del Padrón)</h3>
-            <div class="chart-wrapper">
+            <div style="position: relative; height: 400px; width: 100%; margin-bottom: 30px;">
                 <canvas id="chartEstados"></canvas>
             </div>
 
             <h3 class="chart-title">Avance por Dirección</h3>
-            <div class="chart-wrapper">
+            <div style="position: relative; height: 400px; width: 100%; margin-bottom: 30px;">
                 <canvas id="chartDirecciones"></canvas>
             </div>
 
             <h3 class="chart-title">Curva de Rendimiento (Votos por Hora)</h3>
-            <div class="chart-wrapper" style="height: 250px;">
+            <div style="position: relative; height: 300px; width: 100%;">
                 <canvas id="chartHoras"></canvas>
             </div>
         </div>
 
-        <!-- Tabla de Novedades -->
-        <div id="por-verificar-container" class="table-container">
-            <h3>Por Verificar en Base de Datos</h3>
+        <div id="por-verificar-container" class="table-container" style="display: none;">
+            <h3 style="color:#dc3545; margin-bottom:15px;">Por Verificar en Base de Datos</h3>
             <p style="font-size:13px; color:#666; margin-bottom:15px;">Cédulas que no están en el padrón. Verifique con RRHH si son personal de IPOSTEL.</p>
             <table id="tabla-por-verificar">
-                <thead>
-                    <tr>
-                        <th>Cédula</th>
-                        <th>Nombre</th>
-                        <th>Reportado Por</th>
-                        <th>Fecha</th>
-                    </tr>
-                </thead>
-                <tbody id="tbody-por-verificar">
-                    <tr><td colspan="4" style="text-align:center;">Cargando...</td></tr>
-                </tbody>
+                <thead><tr><th>Cédula</th><th>Nombre</th><th>Reportado Por</th><th>Fecha</th></tr></thead>
+                <tbody id="tbody-por-verificar"><tr><td colspan="4" style="text-align:center;">Cargando...</td></tr></tbody>
             </table>
         </div>
     </div>
 
-    <!-- SCRIPTS -->
-    <script src="app.js?v=20261018-3700"></script>
+    <script src="app.js?v=20261018-3800"></script>
 </body>
 </html>
