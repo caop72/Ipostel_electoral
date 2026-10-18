@@ -64,33 +64,10 @@ function cargarOptsPorEstado() {
                 selectOpt.appendChild(o);
             });
         } else {
-            selectOpt.innerHTML = '<option value="">-- Seleccione su OPT --</option>';
-            const respaldo = {
-                'ZULIA': ['OFICINA POSTAL MARACAIBO', 'OFICINA POSTAL CABIMAS', 'OFICINA POSTAL CIUDAD OJEDA', 'OFICINA POSTAL MENE GRANDE'],
-                'DISTRITO CAPITAL': ['OFICINA POSTAL CARACAS', 'OFICINA POSTAL PETARE', 'OFICINA POSTAL CHACAO'],
-                'MIRANDA': ['OFICINA POSTAL LOS TEQUES', 'OFICINA POSTAL GUARENAS', 'OFICINA POSTAL GUATIRE'],
-                'LARA': ['OFICINA POSTAL BARQUISIMETO', 'OFICINA POSTAL CARORA', 'OFICINA POSTAL QUIBOR'],
-                'CARABOBO': ['OFICINA POSTAL VALENCIA', 'OFICINA POSTAL PUERTO CABELLO', 'OFICINA POSTAL GUACARA'],
-                'ARAGUA': ['OFICINA POSTAL MARACAY', 'OFICINA POSTAL LA VICTORIA', 'OFICINA POSTAL CAGUA'],
-                'TÁCHIRA': ['OFICINA POSTAL SAN CRISTOBAL', 'OFICINA POSTAL SAN ANTONIO', 'OFICINA POSTAL LA FRIA'],
-                'MÉRIDA': ['OFICINA POSTAL MERIDA', 'OFICINA POSTAL EJIDO', 'OFICINA POSTAL EL VIGIA'],
-                'GUÁRICO': ['OFICINA POSTAL SAN JUAN DE LOS MORROS', 'OFICINA POSTAL CALABOZO', 'OFICINA POSTAL VALLE DE LA PASCUA', 'OFICINA POSTAL ZARAZA'],
-                'MONAGAS': ['OFICINA POSTAL MATURIN', 'OFICINA POSTAL PUNTA DE MATA', 'OFICINA POSTAL CARIPITO']
-            };
-            if (respaldo[estado]) {
-                respaldo[estado].forEach(opt => {
-                    let o = document.createElement('option');
-                    o.value = opt;
-                    o.textContent = opt;
-                    selectOpt.appendChild(o);
-                });
-            } else {
-                selectOpt.innerHTML = '<option value="">-- No hay OPTs en este Estado --</option>';
-            }
+            selectOpt.innerHTML = '<option value="">-- No hay OPTs en este Estado --</option>';
         }
     });
 }
-
 function handleLogin(event, tipo) {
     event.preventDefault();
     let payload = { accion: 'login', tipo: tipo };
