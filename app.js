@@ -69,18 +69,29 @@ function handleChangePass(event) {
     const newPass = document.getElementById('new-pass').value;
     
     if(newPass.length === 4 && !isNaN(newPass)) {
-        const payload = { accion: 'cambiarClave', correo: currentUser.correo, nuevaClave: newPass };
+        // Enviamos SOLO el correo y la nueva clave
+        const payload = { 
+            accion: 'cambiarClave', 
+            correo: currentUser.correo, 
+            nuevaClave: newPass 
+        };
 
         fetch(API_URL, {
             method: 'POST',
-            body: new URLSearchParams(payload)
+            body: new URLSearchParams(payload) // Usamos FormData
         })
         .then(res => res.json())
         .then(data => {
             if(data.ok) {
                 alert('Clave guardada correctamente. Iniciando sesión...');
                 // Hacemos login automático con la nueva clave
-                let loginPayload = { accion: 'login', tipo: currentUser.rol === 'DIRECTOR' ? 'director' : 'altos', correo: currentUser.correo, rol: currentUser.estado, clave: newPass };
+                let loginPayload = { 
+                    accion: 'login', 
+                    tipo: 'director', 
+                    correo: currentUser.correo, 
+                    rol: currentUser.estado, 
+                    clave: newPass 
+                };
                 fetch(API_URL, { method: 'POST', body: new URLSearchParams(loginPayload) })
                 .then(res => res.json())
                 .then(data2 => {
@@ -89,7 +100,7 @@ function handleChangePass(event) {
                         currentUser = data2.usuario;
                         loginSuccess();
                     } else {
-                        alert('Error al iniciar sesión automáticamente.');
+                        alert('Error al iniciar sesión automáticamente. Por favor, ingrese manualmente.');
                         logout();
                     }
                 });
@@ -102,7 +113,6 @@ function handleChangePass(event) {
         alert('La clave debe tener exactamente 4 dígitos numéricos.');
     }
 }
-
 function loginSuccess() {
     document.getElementById('user-name-display').textContent = `${currentUser.nombre}`;
     showScreen('dashboard-screen');
