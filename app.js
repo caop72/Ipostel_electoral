@@ -172,6 +172,15 @@ function cargarDashboard(filtros = {}) {
             if (currentUser.rol !== 'JEFE_OPT') {
                 document.getElementById('filtros-container').style.display = 'block';
                 document.getElementById('charts-container').style.display = 'block';
+                
+                // Si es Gerente de Estado, ocultar el filtro de estados (ya está fijado a su estado)
+                if (currentUser.rol === 'GERENTE_ESTADO') {
+                    document.getElementById('filtro-estado').style.display = 'none';
+                    // O simplemente deshabilitarlo y ponerle su estado
+                    const selectEstado = document.getElementById('filtro-estado');
+                    selectEstado.innerHTML = `<option value="${currentUser.estado}">${currentUser.estado}</option>`;
+                }
+                
                 llenarFiltros(data.data, filtroEstado, filtroDireccion);
                 dibujarGraficos(data.data, filtroEstado, filtroDireccion);
             }
@@ -179,7 +188,6 @@ function cargarDashboard(filtros = {}) {
     });
     updateDashboardView();
 }
-
 function llenarFiltros(data, filtroEstado, filtroDireccion) {
     const selectEstado = document.getElementById('filtro-estado');
     const selectDireccion = document.getElementById('filtro-direccion');
