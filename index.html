@@ -136,51 +136,50 @@
                     <h2>Sistema de Monitoreo Electoral</h2>
                     <p>Bienvenido al panel de control ODP 004-2026.</p>
                 </div>
+                
                 <div class="stats-grid" id="stats-container">
                     <div class="stat-card"><h3>Total Padrón</h3><p class="stat-number">---</p></div>
                     <div class="stat-card"><h3>Votos Registrados</h3><p class="stat-number" style="color: var(--color-exito);">---</p></div>
                     <div class="stat-card"><h3>% Participación</h3><p class="stat-number" style="color: var(--color-acento);">---</p></div>
                     <div class="stat-card"><h3>Novedades Pendientes</h3><p class="stat-number" style="color: var(--color-alerta);">---</p></div>
                 </div>
-                
+
+                <div id="filtros-container" style="display:none; margin-top:20px; background:white; padding:15px; border-radius:10px; box-shadow:0 2px 5px rgba(0,0,0,0.05);">
+                    <h3 style="margin-bottom:15px; color:#0033A0;">Filtros de Estadísticas</h3>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+                        <div class="input-group" style="flex:1; min-width:200px;">
+                            <label>Filtrar por Estado:</label>
+                            <select id="filtro-estado" onchange="actualizarDirecciones()">
+                                <option value="">Todos los Estados</option>
+                            </select>
+                        </div>
+                        <div class="input-group" style="flex:1; min-width:200px;">
+                            <label>Filtrar por Dirección (OPT):</label>
+                            <select id="filtro-direccion">
+                                <option value="">Todas las Direcciones</option>
+                            </select>
+                        </div>
+                        <div style="display:flex; gap:5px;">
+                            <button class="btn-primary" style="width:auto; padding:10px 20px;" onclick="aplicarFiltros()">Aplicar Filtros</button>
+                            <button class="btn-primary" style="width:auto; padding:10px 20px; background:#6c757d;" onclick="limpiarFiltros()">Limpiar</button>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="role-content"><p style="text-align: center; color: #666;">Seleccione una opción para comenzar.</p></div>
 
-<div id="filtros-container" style="display:none; margin-top:20px; background:white; padding:15px; border-radius:10px; box-shadow:0 2px 5px rgba(0,0,0,0.05);">
-    <h3 style="margin-bottom:15px; color:#0033A0;">Filtros de Estadísticas</h3>
-    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
-        <div class="input-group" style="flex:1; min-width:200px;">
-            <label>Filtrar por Estado:</label>
-            <select id="filtro-estado">
-                <option value="">Todos los Estados</option>
-            </select>
-        </div>
-        <div class="input-group" style="flex:1; min-width:200px;">
-            <label>Filtrar por Dirección (OPT):</label>
-            <select id="filtro-direccion">
-                <option value="">Todas las Direcciones</option>
-            </select>
-        </div>
-        <div style="display:flex; gap:5px;">
-            <button class="btn-primary" style="width:auto; padding:10px 20px;" onclick="aplicarFiltros()">Aplicar Filtros</button>
-            <button class="btn-primary" style="width:auto; padding:10px 20px; background:#6c757d;" onclick="limpiarFiltros()">Limpiar</button>
-        </div>
-    </div>
-</div>
-    </div>
-</div>
-
-<div id="charts-container" style="display:none; margin-top:20px;">
-    <h3 style="text-align:center; color:#0033A0; margin-bottom:15px;">Avance por Estado</h3>
-    <canvas id="chartEstados" style="max-height: 300px;"></canvas>
-    <h3 style="text-align:center; color:#0033A0; margin-top:30px; margin-bottom:15px;">Avance por Dirección</h3>
-    <canvas id="chartDirecciones" style="max-height: 300px;"></canvas>
-    <h3 style="text-align:center; color:#0033A0; margin-top:30px; margin-bottom:15px;">Curva de Rendimiento (Votos por Hora)</h3>
-    <canvas id="chartHoras" style="max-height: 250px;"></canvas>
-</div>
+                <div id="charts-container" style="display:none; margin-top:20px;">
+                    <h3 style="text-align:center; color:#0033A0; margin-bottom:15px;">Avance por Estado</h3>
+                    <canvas id="chartEstados" style="max-height: 300px;"></canvas>
+                    <h3 style="text-align:center; color:#0033A0; margin-top:30px; margin-bottom:15px;">Avance por Dirección</h3>
+                    <canvas id="chartDirecciones" style="max-height: 300px;"></canvas>
+                    <h3 style="text-align:center; color:#0033A0; margin-top:30px; margin-bottom:15px;">Curva de Rendimiento (Votos por Hora)</h3>
+                    <canvas id="chartHoras" style="max-height: 250px;"></canvas>
+                </div>
             </main>
         </div>
     </div>
 
-    <script src="app.js?v=20261018-900"></script>
+    <script src="app.js?v=20261018-1100"></script>
 </body>
 </html>
