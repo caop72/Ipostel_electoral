@@ -16,7 +16,6 @@ function enviarAScript(datos, callback) {
     .catch(err => callback({ ok: false, error: 'Error de conexión: ' + err.message }));
 }
 
-
 // --- UI Y PESTAÑAS ---
 function showScreen(screenId) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -321,21 +320,33 @@ function guardarVotoReal() {
     }
 }
 
+// --- ÚNICO AJUSTE: MODAL DE CLAVES DINÁMICO ---
 function abrirModalClaves() {
-    let modalHTML = `
-        <div id="modal-claves" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
-            <div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:400px;">
-                <h3 style="margin-bottom:15px; color:#0033A0;">Claves de OPTs</h3>
-                <p style="font-size:14px; margin-bottom:15px;">Entregue estas claves vía WhatsApp a sus Jefes de OPT.</p>
-                <table style="width:100%; border-collapse: collapse; font-size:12px;">
-                    <tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">OPT</th><th style="padding:5px; border:1px solid #ddd;">Clave</th></tr>
-                    <tr><td style="padding:5px; border:1px solid #ddd;">OPT Central</td><td style="padding:5px; border:1px solid #ddd; font-weight:bold;">1234</td></tr>
-                </table>
-                <button onclick="cerrarModal('modal-claves')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button>
+    enviarAScript({ accion: 'obtenerOPTs' }, function(data) {
+        let tabla = '<tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">OPT</th><th style="padding:5px; border:1px solid #ddd;">Clave</th></tr>';
+        if (data.ok && data.data.length > 0) {
+            data.data.forEach((opt, index) => {
+                const clave = String(1000 + index).slice(-4);
+                tabla += `<tr><td style="padding:5px; border:1px solid #ddd;">${opt}</td><td style="padding:5px; border:1px solid #ddd; font-weight:bold;">${clave}</td></tr>`;
+            });
+        } else {
+            tabla += '<tr><td colspan="2" style="text-align:center; padding:10px;">No hay OPTs disponibles.</td></tr>';
+        }
+
+        let modalHTML = `
+            <div id="modal-claves" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
+                <div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:500px; max-height:80vh; overflow-y:auto;">
+                    <h3 style="margin-bottom:15px; color:#0033A0;">Claves de OPTs</h3>
+                    <p style="font-size:14px; margin-bottom:15px;">Entregue estas claves vía WhatsApp a sus Jefes de OPT.</p>
+                    <table style="width:100%; border-collapse: collapse; font-size:12px;">
+                        ${tabla}
+                    </table>
+                    <button onclick="cerrarModal('modal-claves')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button>
+                </div>
             </div>
-        </div>
-    `;
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+    });
 }
 
 function cerrarModal(idModal) {
