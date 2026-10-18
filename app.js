@@ -326,15 +326,18 @@ function abrirModalCargaLote() {
 
 function procesarLote() {
     const texto = document.getElementById('lote-cedulas').value;
+    // Separar por comas o saltos de línea, y limpiar espacios en blanco
     const cedulas = texto.split(/[\n,]+/).map(c => c.trim()).filter(c => c.length > 0);
     
     if (cedulas.length === 0) { alert("No hay cédulas para procesar."); return; }
     
     let errores = [];
     let exitos = 0;
+    let procesadas = 0;
     
     function procesarSiguiente(index) {
         if (index >= cedulas.length) {
+            // Al terminar, mostrar resumen
             alert(`Lote procesado: ${exitos} exitosos, ${errores.length} errores.\n\nErrores:\n${errores.join('\n')}`);
             cerrarModal('modal-lote');
             cargarDashboard();
@@ -343,10 +346,18 @@ function procesarLote() {
         
         const cedula = cedulas[index];
         
-        enviarAScript({ accion: 'cargarVoto', token: currentToken, cedula_votante: cedula, nombre_votante: '', commit_novedad: '', foto_url: '' }, function(data) {
+        enviarAScript({ 
+            accion: 'cargarVoto', 
+            token: currentToken, 
+            cedula_votante: cedula, 
+            nombre_votante: '', 
+            commit_novedad: '', 
+            foto_url: '' 
+        }, function(data) {
             if (data.ok) {
                 exitos++;
             } else {
+                // Si la cédula no está en el padrón, se registra como error pero se continúa
                 errores.push(cedula + ': ' + data.error);
             }
             procesarSiguiente(index + 1);
