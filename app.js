@@ -175,7 +175,7 @@ function cargarPorVerificar() {
         const container = document.getElementById('por-verificar-container');
         const tbody = document.getElementById('tbody-por-verificar');
         
-        if (data.ok && data.data.length > 0) {
+        if (data.ok && data.data && data.data.length > 0) {
             container.style.display = 'block';
             tbody.innerHTML = '';
             data.data.forEach(item => {
@@ -195,72 +195,99 @@ function cargarPorVerificar() {
 }
 
 function dibujarGraficos(data) {
-    // Gráfico 1: % de Participación por Estado
-    const estados = Object.keys(data.padronPorEstado).sort();
-    const participacionData = estados.map(e => {
-        const padron = data.padronPorEstado[e] || 0;
-        const votos = data.votosPorEstado[e] || 0;
-        return padron > 0 ? ((votos / padron) * 100).toFixed(1) : 0;
-    });
-    
-    if (chartEstados) chartEstados.destroy();
-    const ctx1 = document.getElementById('chartEstados').getContext('2d');
-    chartEstados = new Chart(ctx1, {
-        type: 'bar',
-        data: { 
-            labels: estados, 
-            datasets: [{
-                label: '% Participación',
-                data: participacionData,
-                backgroundColor: 'rgba(200, 16, 46, 0.8)'
-            }]
-        },
-        options: { 
-            responsive: true, 
-            scales: { 
-                y: { 
-                    beginAtZero: true,
-                    max: 100,
-                    ticks: { callback: function(value) { return value + '%'; } }
-                } 
-            } 
+    // --- Gráfico 1: % de Participación por Estado ---
+    if (data.padronPorEstado && data.votosPorEstado) {
+        const estados = Object.keys(data.padronPorEstado).sort();
+        const participacionData = estados.map(e => {
+            const padron = data.padronPorEstado[e] || 0;
+            const votos = data.votosPorEstado[e] || 0;
+            return padron > 0 ? ((votos / padron) * 100).toFixed(1) : 0;
+        });
+        
+        if (window.chartEstados) window.chartEstados.destroy();
+        const canvasEstados = document.getElementById('chartEstados');
+        if (canvasEstados) {
+            const ctx1 = canvasEstados.getContext('2d');
+            window.chartEstados = new Chart(ctx1, {
+                type: 'bar',
+                data: { 
+                    labels: estados, 
+                    datasets: [{
+                        label: '% Participación',
+                        data: participacionData,
+                        backgroundColor: 'rgba(200, 16, 46, 0.8)'
+                    }]
+                },
+                options: { 
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { 
+                        y: { 
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: { callback: function(value) { return value + '%'; } }
+                        } 
+                    } 
+                }
+            });
         }
-    });
+    }
     
-    // Gráfico 2: Por Dirección
-    const direcciones = Object.keys(data.padronPorDireccion).sort();
-    const padronDirData = direcciones.map(d => data.padronPorDireccion[d] || 0);
-    const votosDirData = direcciones.map(d => data.votosPorDireccion[d] || 0);
+    // --- Gráfico 2: Por Dirección ---
+    if (data.padronPorDireccion && data.votosPorDireccion) {
+        const direcciones = Object.keys(data.padronPorDireccion).sort();
+        const padronDirData = direcciones.map(d => data.padronPorDireccion[d] || 0);
+        const votosDirData = direcciones.map(d => data.votosPorDireccion[d] || 0);
+        
+        if (window.chartDirecciones) window.chartDirecciones.destroy();
+        const canvasDirecciones = document.getElementById('chartDirecciones');
+        if (canvasDirecciones) {
+            const ctx2 = canvasDirecciones.getContext('2d');
+            window.chartDirecciones = new Chart(ctx2, {
+                type: 'bar',
+                data: { labels: direcciones, datasets: [
+                    { label: 'Padrón', data: padronDirData, backgroundColor: 'rgba(0, 51, 160, 0.5)' },
+                    { label: 'Votos', data: votosDirData, backgroundColor: 'rgba(200, 16, 46, 0.8)' }
+                ]},
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true } } 
+                }
+            });
+        }
+    }
     
-    if (chartDirecciones) chartDirecciones.destroy();
-    const ctx2 = document.getElementById('chartDirecciones').getContext('2d');
-    chartDirecciones = new Chart(ctx2, {
-        type: 'bar',
-        data: { labels: direcciones, datasets: [
-            { label: 'Padrón', data: padronDirData, backgroundColor: 'rgba(0, 51, 160, 0.5)' },
-            { label: 'Votos', data: votosDirData, backgroundColor: 'rgba(200, 16, 46, 0.8)' }
-        ]},
-        options: { responsive: true, scales: { y: { beginAtZero: true } } }
-    });
-    
-    // Gráfico 3: Curva por Hora
-    const horas = Object.keys(data.votosPorHora).sort();
-    const votosHora = horas.map(h => data.votosPorHora[h]);
-    
-    if (chartHoras) chartHoras.destroy();
-    const ctx3 = document.getElementById('chartHoras').getContext('2d');
-    chartHoras = new Chart(ctx3, {
-        type: 'line',
-        data: { labels: horas, datasets: [{
-            label: 'Votos por Hora', data: votosHora,
-            borderColor: 'rgba(200, 16, 46, 1)', backgroundColor: 'rgba(200, 16, 46, 0.2)',
-            fill: true, tension: 0.4
-        }]},
-        options: { responsive: true, scales: { y: { beginAtZero: true } } }
-    });
+    // --- Gráfico 3: Curva por Hora ---
+    if (data.votosPorHora) {
+        const horas = Object.keys(data.votosPorHora).sort();
+        const votosHora = horas.map(h => data.votosPorHora[h]);
+        
+        if (window.chartHoras) window.chartHoras.destroy();
+        const canvasHoras = document.getElementById('chartHoras');
+        if (canvasHoras) {
+            const ctx3 = canvasHoras.getContext('2d');
+            window.chartHoras = new Chart(ctx3, {
+                type: 'line',
+                data: { labels: horas, datasets: [{
+                    label: 'Votos por Hora', data: votosHora,
+                    borderColor: 'rgba(200, 16, 46, 1)', backgroundColor: 'rgba(200, 16, 46, 0.2)',
+                    fill: true, tension: 0.4
+                }]},
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true } } 
+                }
+            });
+        }
+    }
 }
+
 function updateDashboardView() {
     const contentDiv = document.getElementById('role-content');
+    if (!contentDiv) return; // Validación de seguridad
+    
     if (currentUser.rol === 'DIRECTOR') {
         contentDiv.innerHTML = `
             <h3 style="margin-bottom:15px; color:#0033A0; text-align:center;">Panel de Director</h3>
@@ -348,7 +375,6 @@ function abrirModalCargaLote() {
         </div>`;
     document.body.insertAdjacentHTML('beforeend', modalHTML);
 }
-
 function procesarLote() {
     const texto = document.getElementById('lote-cedulas').value;
     // Separar por comas o saltos de línea, y limpiar espacios en blanco
