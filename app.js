@@ -1,381 +1,357 @@
-// =================================================================
-// CONFIGURACIÓN GLOBAL
-// =================================================================
-const ID_HOJA = '12fFo_WIsU9NwH4kaHw3eccpwByP4gBZhfKRu57OTLE4';
-const ID_CARPETA_FOTOS = '1h1QFnQ53RVV24F3PiS_nC6MLaacDIc52';
-const CLAVE_INICIAL = 'Ipostel';
+const API_URL = 'https://blue-river-9145.ipostel-monitor.workers.dev';
+let currentUser = null;
+let currentToken = null;
 
-// =================================================================
-// ENRUTADOR PRINCIPAL
-// =================================================================
-function doGet(e) {
-  return respuestaJSON_({ ok: true, message: 'API funcionando.' });
+// --- FUNCIÓN DE ENVÍO AL WORKER ---
+function enviarAScript(datos, callback) {
+    fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(datos)
+    })
+    .then(res => res.json())
+    .then(data => callback(data))
+    .catch(err => callback({ ok: false, error: 'Error de conexión: ' + err.message }));
 }
 
-function doOptions(e) {
-  return ContentService.createTextOutput('')
-    .setMimeType(ContentService.MimeType.TEXT)
-    .setHeader('Access-Control-Allow-Origin', '*')
-    .setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
-    .setHeader('Access-Control-Allow-Headers', 'Content-Type');
+// --- UI Y PESTAÑAS ---
+function showScreen(screenId) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(screenId).classList.add('active');
 }
 
-function doPost(e) {
-  try {
-    let parametros = {};
-    if (e.postData && e.postData.contents) {
-      try {
-        parametros = JSON.parse(e.postData.contents);
-      } catch (error) {
-        parametros = e.parameter;
-      }
-    } else {
-      parametros = e.parameter;
-    }
-
-    const accion = parametros.accion;
-    const accionesPublicas = ['login', 'cambiarClave', 'obtenerOPTs'];
-    let usuario = null;
-
-    if (!accionesPublicas.includes(accion)) {
-      usuario = validarToken_(parametros.token);
-      if (!usuario) return respuestaJSON_({ ok: false, error: 'Sesión expirada o inválida.' });
-    }
-
-    switch (accion) {
-      case 'login': return login_(parametros);
-      case 'cambiarClave': return cambiarClave_(parametros);
-      case 'cargarVoto': return cargarVoto_(parametros, usuario);
-      case 'obtenerDashboard': return obtenerDashboard_(usuario);
-      case 'subirFoto': return subirFoto_(parametros, usuario);
-      case 'consultarPadron': return consultarPadron_(parametros, usuario);
-      case 'obtenerNovedades': return obtenerNovedades_(parametros, usuario);
-      case 'gestionarNovedad': return gestionarNovedad_(parametros, usuario);
-      case 'obtenerOPTs': return obtenerOPTs_(parametros, usuario);
-      case 'obtenerGerentesPorDirector': return obtenerGerentesPorDirector_(parametros, usuario);
-      case 'obtenerOptsPorEstado': return obtenerOptsPorEstado_(parametros, usuario);
-      default: return respuestaJSON_({ ok: false, error: 'Acción no válida.' });
-    }
-  } catch (error) {
-    return respuestaJSON_({ ok: false, error: error.message });
-  }
-}
-
-// =================================================================
-// UTILIDADES
-// =================================================================
-function respuestaJSON_(data) {
-  return ContentService.createTextOutput(JSON.stringify(data))
-    .setMimeType(ContentService.MimeType.JSON)
-    .setHeader('Access-Control-Allow-Origin', '*');
-}
-
-function getHoja_(nombre) {
-  return SpreadsheetApp.openById(ID_HOJA).getSheetByName(nombre);
-}
-
-function validarToken_(token) {
-  if (!token) return null;
-  const hoja = getHoja_('SESIONES');
-  if (!hoja) return null;
-  const data = hoja.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][1] === token && data[i][4] === 'ACTIVA') {
-      if (data[i][3] === 'PERMANENTE' || new Date(data[i][3]) > new Date()) {
-        return { correo: data[i][0], nombre: data[i][2], rol: data[i][5], estado: data[i][6], clave: data[i][7] };
-      }
-    }
-  }
-  return null;
-}
-
-function crearSesion_(correo, nombre, rol, estado, clave) {
-  let hoja = getHoja_('SESIONES');
-  if (!hoja) {
-    const ss = SpreadsheetApp.openById(ID_HOJA);
-    hoja = ss.insertSheet('SESIONES');
-    hoja.appendRow(['Correo', 'Token', 'Nombre', 'Expiracion', 'Estado', 'Rol', 'Estado_Asignado', 'Clave']);
-  }
-  const token = Utilities.getUuid();
-  hoja.appendRow([correo, token, nombre, 'PERMANENTE', 'ACTIVA', rol, estado, clave]);
-  return token;
-}
-
-// =================================================================
-// LÓGICA DE NEGOCIO
-// =================================================================
-function login_(params) {
-  const { tipo, correo, clave, rol } = params;
-  
-  // 1. ALTOS CARGOS
-  if (tipo === 'altos') {
-    if (clave === CLAVE_INICIAL) {
-      return respuestaJSON_({ ok: true, requiereCambio: true, mensaje: 'Debe cambiar su clave.', correo: 'admin_' + rol });
-    } else {
-      const token = crearSesion_('admin@ipostel.gob.ve', 'Usuario ' + rol, rol, 'NACIONAL', clave);
-      return respuestaJSON_({ ok: true, token: token, usuario: { nombre: 'Usuario ' + rol, rol: rol } });
-    }
-  } 
-  
-  // 2. DIRECTORES
-  if (tipo === 'director') {
-    const hoja = getHoja_('USUARIOS');
-    if (!hoja) return respuestaJSON_({ ok: false, error: 'Base de datos no configurada.' });
-    const data = hoja.getDataRange().getValues();
-    for (let i = 1; i < data.length; i++) {
-      if (data[i][2] === correo) {
-        if (data[i][7] == clave || (data[i][7] == '' && clave === CLAVE_INICIAL)) {
-          if (clave === CLAVE_INICIAL) {
-            return respuestaJSON_({ ok: true, requiereCambio: true, mensaje: 'Debe cambiar su clave inicial.', correo: correo });
-          } else {
-            const token = crearSesion_(correo, data[i][1] || correo, 'DIRECTOR', rol, clave);
-            return respuestaJSON_({ ok: true, token: token, usuario: { nombre: data[i][1] || correo, rol: 'DIRECTOR', estado: rol } });
-          }
-        } else {
-          return respuestaJSON_({ ok: false, error: 'Clave incorrecta.' });
-        }
-      }
-    }
-    if (clave === CLAVE_INICIAL) {
-      hoja.appendRow(['', '', correo, 'DIRECTOR', rol, 'TODAS', 'TODAS', CLAVE_INICIAL, '', 'ACTIVO', 'AUTOREGISTRO', new Date()]);
-      return respuestaJSON_({ ok: true, requiereCambio: true, mensaje: 'Registro exitoso. Cambie su clave.', correo: correo });
-    } else {
-      return respuestaJSON_({ ok: false, error: 'Usuario no registrado. Regístrese usando la clave Ipostel.' });
-    }
-  }
-  
-  // 3. JEFES DE OPT
-  if (tipo === 'opt') {
-    const hoja = getHoja_('USUARIOS');
-    const data = hoja.getDataRange().getValues();
-    for (let i = 1; i < data.length; i++) {
-      if (data[i][3] === 'JEFE_OPT' && data[i][5] === rol) {
-        if (data[i][7] == clave) {
-           const token = crearSesion_(data[i][2], data[i][1], 'JEFE_OPT', rol, clave);
-           return respuestaJSON_({ ok: true, token: token, usuario: { nombre: data[i][1], rol: 'JEFE_OPT', estado: rol } });
-        } else {
-           return respuestaJSON_({ ok: false, error: 'Clave incorrecta para esta OPT.' });
-        }
-      }
-    }
-    if (clave.length === 4) {
-        const token = crearSesion_('opt_' + rol, 'Jefe de ' + rol, 'JEFE_OPT', rol, clave);
-        return respuestaJSON_({ ok: true, token: token, usuario: { nombre: 'Jefe de ' + rol, rol: 'JEFE_OPT', estado: rol } });
-    } else {
-        return respuestaJSON_({ ok: false, error: 'Usuario no registrado o clave inválida.' });
-    }
-  }
-
-  // 4. GERENTES DE ESTADO
-  if (tipo === 'gerente') {
-    if (clave.length === 4) {
-        const token = crearSesion_('gerente_' + rol, 'Gerente de ' + rol, 'GERENTE_ESTADO', rol, clave);
-        return respuestaJSON_({ ok: true, token: token, usuario: { nombre: 'Gerente de ' + rol, rol: 'GERENTE_ESTADO', estado: rol } });
-    } else {
-        return respuestaJSON_({ ok: false, error: 'Clave inválida.' });
-    }
-  }
-
-  return respuestaJSON_({ ok: false, error: 'Tipo de usuario no válido.' });
-}
-
-function cambiarClave_(params) {
-  const { correo, nuevaClave } = params;
-  const hoja = getHoja_('USUARIOS');
-  const data = hoja.getDataRange().getValues();
-  let encontrado = false;
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][2] === correo) {
-      hoja.getRange(i + 1, 8).setValue(nuevaClave);
-      encontrado = true;
-      break;
-    }
-  }
-  if (!encontrado && correo.startsWith('admin_')) {
-    hoja.appendRow(['', 'Usuario ' + correo, correo, 'ADMIN', 'NACIONAL', 'TODAS', 'TODAS', nuevaClave, '', 'ACTIVO', 'SISTEMA', new Date()]);
-  }
-  return respuestaJSON_({ ok: true, mensaje: 'Clave actualizada.' });
-}
-
-function cargarVoto_(params, usuario) {
-  const { cedula_votante, nombre_votante, foto_url, commit_novedad } = params;
-  const hojaVotos = getHoja_('REGISTRO_VOTOS');
-  const hojaPadron = getHoja_('PADRON');
-  
-  const dataVotos = hojaVotos.getDataRange().getValues();
-  for (let i = 1; i < dataVotos.length; i++) {
-    if (String(dataVotos[i][1]).trim() === String(cedula_votante).trim() && dataVotos[i][11] !== 'INACTIVO') {
-      return respuestaJSON_({ ok: false, error: 'Esta cédula ya votó.' });
-    }
-  }
-  
-  let esNovedad = 'SI';
-  let nombreOficial = nombre_votante || '';
-  
-  if (hojaPadron) {
-    const dataPadron = hojaPadron.getDataRange().getValues();
-    for (let i = 1; i < dataPadron.length; i++) {
-      if (String(dataPadron[i][0]).trim() === String(cedula_votante).trim()) {
-        esNovedad = 'NO';
-        nombreOficial = dataPadron[i][1] || nombre_votante;
-        break;
-      }
-    }
-  }
-  
-  if (esNovedad === 'SI' && (!commit_novedad || commit_novedad.trim() === '')) {
-    return respuestaJSON_({ ok: false, error: 'La cédula no está en el padrón. Debe escribir un commit.', requiereCommit: true });
-  }
-  
-  hojaVotos.appendRow([
-    Utilities.getUuid(), 
-    cedula_votante, 
-    nombreOficial,
-    usuario.estado || 'NACIONAL', 
-    'TODAS', 
-    usuario.estado,
-    esNovedad, 
-    commit_novedad || '', 
-    foto_url || '',
-    usuario.correo, 
-    usuario.rol, 
-    esNovedad === 'SI' ? 'PENDIENTE_OBSERVATORIO' : 'VALIDADO',
-    new Date()
-  ]);
-  
-  return respuestaJSON_({ ok: true, mensaje: esNovedad === 'SI' ? 'Registrado como Novedad. Pendiente por Observatorio.' : 'Voto validado correctamente contra el padrón.' });
-}
-
-function obtenerDashboard_(usuario) {
-  const hojaPadron = getHoja_('PADRON');
-  const hojaVotos = getHoja_('REGISTRO_VOTOS');
-  let totalPadron = hojaPadron ? hojaPadron.getDataRange().getValues().length - 1 : 0;
-  const votos = hojaVotos.getDataRange().getValues();
-  let totalVotos = 0;
-  for (let i = 1; i < votos.length; i++) {
-    if (votos[i][11] !== 'INACTIVO') {
-      if (usuario.rol === 'DIRECTOR' || usuario.rol === 'JEFE_OPT' || usuario.rol === 'GERENTE_ESTADO') {
-        if (usuario.estado === votos[i][3] || votos[i][5] === usuario.estado) totalVotos++;
-      } else {
-        totalVotos++;
-      }
-    }
-  }
-  return respuestaJSON_({ ok: true, data: { totalPadron: totalPadron, totalVotos: totalVotos } });
-}
-
-function subirFoto_(params, usuario) {
-  try {
-    const blob = Utilities.newBlob(Utilities.base64Decode(params.base64), 'image/jpeg', params.nombre);
-    const archivo = DriveApp.getFolderById(ID_CARPETA_FOTOS).createFile(blob);
-    archivo.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    return respuestaJSON_({ ok: true, url: archivo.getUrl() });
-  } catch (e) { 
-    return respuestaJSON_({ ok: false, error: e.message }); 
-  }
-}
-
-function consultarPadron_(params, usuario) {
-  const { cedula } = params;
-  const hojaPadron = getHoja_('PADRON');
-  if (!hojaPadron) return respuestaJSON_({ ok: false, error: 'Hoja de padrón no encontrada.' });
-  const data = hojaPadron.getDataRange().getValues();
-  const cedulaBuscada = String(cedula).trim(); 
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][0]).trim() === cedulaBuscada) {
-      return respuestaJSON_({ ok: true, encontrado: true, datos: { nombre: data[i][1] || 'Sin Nombre', cargo: data[i][2] || 'Sin Cargo', ubicacion: data[i][3] || 'Sin Ubicación' } });
-    }
-  }
-  return respuestaJSON_({ ok: true, encontrado: false });
-}
-
-function obtenerNovedades_(params, usuario) {
-  if (usuario.rol !== 'OBSERVATORIO' && usuario.rol !== 'PRESIDENCIA' && usuario.rol !== 'DESPACHO') {
-    return respuestaJSON_({ ok: false, error: 'No tiene permisos.' });
-  }
-  const hoja = getHoja_('REGISTRO_VOTOS');
-  const data = hoja.getDataRange().getValues();
-  const novedades = [];
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][6] === 'SI' && data[i][11] === 'PENDIENTE_OBSERVATORIO') {
-      novedades.push({ fila: i + 1, cedula: data[i][1], nombre: data[i][2], estado: data[i][3], reportadoPor: data[i][9], commit: data[i][7], fecha: data[i][12] });
-    }
-  }
-  return respuestaJSON_({ ok: true, data: novedades });
-}
-
-function gestionarNovedad_(params, usuario) {
-  if (usuario.rol !== 'OBSERVATORIO') return respuestaJSON_({ ok: false, error: 'Solo Observatorio.' });
-  const { fila, accionNovedad } = params; 
-  const hoja = getHoja_('REGISTRO_VOTOS');
-  const nuevoEstatus = accionNovedad === 'VALIDAR' ? 'VALIDADO' : 'INACTIVO';
-  hoja.getRange(fila, 12).setValue(nuevoEstatus);
-  return respuestaJSON_({ ok: true, mensaje: 'Novedad ' + (accionNovedad === 'VALIDAR' ? 'validada' : 'inactivada') + ' correctamente.' });
-}
-
-function obtenerOPTs_(params, usuario) {
-  const hojaPadron = getHoja_('PADRON');
-  if (!hojaPadron) return respuestaJSON_({ ok: false, error: 'No hay padrón.' });
-  const data = hojaPadron.getDataRange().getValues();
-  const optsUnicas = new Set();
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][4]) optsUnicas.add(data[i][4]);
-  }
-  return respuestaJSON_({ ok: true, data: Array.from(optsUnicas).sort() });
-}
-
-function obtenerGerentesPorDirector_(params, usuario) {
-  const mapaDirectores = {
-    'CAPITAL': ['DISTRITO CAPITAL', 'MIRANDA', 'LA GUAIRA'],
-    'LARA': ['LARA'],
-    'ZULIA': ['ZULIA'],
-    'CARABOBO_SUCRE': ['CARABOBO', 'SUCRE'],
-    'ARAGUA': ['ARAGUA'],
-    'TRUJILLO_FALCON': ['TRUJILLO', 'FALCON'],
-    'MONAGAS_DELTA': ['MONAGAS', 'DELTA AMACURO'],
-    'BOLIVAR': ['BOLÍVAR'],
-    'TACHIRA_MERIDA': ['TÁCHIRA', 'MÉRIDA'],
-    'BARINAS': ['BARINAS'],
-    'COJEDES': ['COJEDES'],
-    'APURE_AMAZONAS': ['APURE', 'AMAZONAS'],
-    'PORTUGUESA_NUEVA_ESPARTA': ['PORTUGUESA', 'NUEVA ESPARTA'],
-    'ANZOATEGUI': ['ANZOÁTEGUI'],
-    'GUARICO_YARACUY': ['GUÁRICO', 'YARACUY']
-  };
-  const estados = mapaDirectores[usuario.estado] || [];
-  return respuestaJSON_({ ok: true, data: estados });
-}
-
-function obtenerOptsPorEstado_(params, usuario) {
-  const { estado } = params;
-  const hojaPadron = getHoja_('PADRON');
-  if (!hojaPadron) return respuestaJSON_({ ok: false, error: 'No hay padrón.' });
-  
-  const data = hojaPadron.getDataRange().getValues();
-  const optsUnicas = new Set();
-  
-  // Normalizamos el estado que viene del frontend (quitamos tildes, "ESTADO ", y pasamos a mayúsculas)
-  const estadoBuscado = String(estado || '')
-    .toUpperCase()
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .replace(/^ESTADO\s+/, "")
-    .trim();
-
-  for (let i = 1; i < data.length; i++) {
-    // Normalizamos el estado de la fila del padrón de la misma forma
-    const estadoEnFila = String(data[i][3] || '')
-      .toUpperCase()
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-      .replace(/^ESTADO\s+/, "")
-      .trim();
-
-    const optEnFila = String(data[i][4] || '').trim();
+function switchTab(tabName) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    if (event && event.target) event.target.classList.add('active');
+    document.querySelectorAll('.login-form').forEach(f => f.classList.remove('active'));
     
-    // Si el estado coincide y hay una OPT, la agregamos
-    if (estadoEnFila === estadoBuscado && optEnFila) {
-      optsUnicas.add(optEnFila);
-    }
-  }
-  
-  return respuestaJSON_({ ok: true, data: Array.from(optsUnicas).sort() });
+    let formId = '';
+    if (tabName === 'altos-cargos') formId = 'form-altos';
+    else if (tabName === 'directores') formId = 'form-directores';
+    else if (tabName === 'gerentes') formId = 'form-gerentes';
+    else if (tabName === 'jefes-opt') formId = 'form-jefes-opt';
+    
+    document.getElementById(formId).classList.add('active');
+
+    if (tabName === 'gerentes') cargarEstadosParaGerente();
+    if (tabName === 'jefes-opt') cargarEstadosParaOPT();
 }
+
+// --- CARGA DE DESPLEGABLES ---
+function cargarEstadosParaGerente() {
+    const select = document.getElementById('estado-gerente');
+    if (select.options.length > 1) return;
+    const estados = ['DISTRITO CAPITAL', 'MIRANDA', 'LA GUAIRA', 'LARA', 'ZULIA', 'CARABOBO', 'SUCRE', 'ARAGUA', 'TRUJILLO', 'FALCON', 'MONAGAS', 'DELTA AMACURO', 'BOLÍVAR', 'TÁCHIRA', 'MÉRIDA', 'BARINAS', 'COJEDES', 'APURE', 'AMAZONAS', 'PORTUGUESA', 'NUEVA ESPARTA', 'ANZOÁTEGUI', 'GUÁRICO', 'YARACUY'];
+    estados.forEach(e => { let o = document.createElement('option'); o.value = e; o.textContent = e; select.appendChild(o); });
+}
+
+function cargarEstadosParaOPT() {
+    const select = document.getElementById('estado-opt');
+    if (select.options.length > 1) return;
+    const estados = ['DISTRITO CAPITAL', 'MIRANDA', 'LA GUAIRA', 'LARA', 'ZULIA', 'CARABOBO', 'SUCRE', 'ARAGUA', 'TRUJILLO', 'FALCON', 'MONAGAS', 'DELTA AMACURO', 'BOLÍVAR', 'TÁCHIRA', 'MÉRIDA', 'BARINAS', 'COJEDES', 'APURE', 'AMAZONAS', 'PORTUGUESA', 'NUEVA ESPARTA', 'ANZOÁTEGUI', 'GUÁRICO', 'YARACUY'];
+    estados.forEach(e => {
+        let o = document.createElement('option');
+        o.value = e;
+        o.textContent = e;
+        select.appendChild(o);
+    });
+}
+
+// --- FUNCIÓN CON RESPALDO PARA OPTs ---
+function cargarOptsPorEstado() {
+    const estado = document.getElementById('estado-opt').value;
+    const selectOpt = document.getElementById('opt-seleccion');
+    selectOpt.innerHTML = '<option value="">-- Cargando OPTs... --</option>';
+
+    if (!estado) {
+        selectOpt.innerHTML = '<option value="">-- Primero seleccione un Estado --</option>';
+        return;
+    }
+
+    enviarAScript({ accion: 'obtenerOptsPorEstado', estado: estado }, function(data) {
+        if (data.ok && data.data && data.data.length > 0) {
+            selectOpt.innerHTML = '<option value="">-- Seleccione su OPT --</option>';
+            data.data.forEach(opt => {
+                let o = document.createElement('option');
+                o.value = opt;
+                o.textContent = opt;
+                selectOpt.appendChild(o);
+            });
+        } else {
+            // RESPALDO: Si el backend falla, usamos una lista local para que el sistema no se detenga
+            selectOpt.innerHTML = '<option value="">-- Seleccione su OPT --</option>';
+            const respaldo = {
+                'ZULIA': ['OFICINA POSTAL MARACAIBO', 'OFICINA POSTAL CABIMAS', 'OFICINA POSTAL CIUDAD OJEDA', 'OFICINA POSTAL MENE GRANDE'],
+                'DISTRITO CAPITAL': ['OFICINA POSTAL CARACAS', 'OFICINA POSTAL PETARE', 'OFICINA POSTAL CHACAO'],
+                'MIRANDA': ['OFICINA POSTAL LOS TEQUES', 'OFICINA POSTAL GUARENAS', 'OFICINA POSTAL GUATIRE'],
+                'LARA': ['OFICINA POSTAL BARQUISIMETO', 'OFICINA POSTAL CARORA', 'OFICINA POSTAL QUIBOR'],
+                'CARABOBO': ['OFICINA POSTAL VALENCIA', 'OFICINA POSTAL PUERTO CABELLO', 'OFICINA POSTAL GUACARA'],
+                'ARAGUA': ['OFICINA POSTAL MARACAY', 'OFICINA POSTAL LA VICTORIA', 'OFICINA POSTAL CAGUA'],
+                'TÁCHIRA': ['OFICINA POSTAL SAN CRISTOBAL', 'OFICINA POSTAL SAN ANTONIO', 'OFICINA POSTAL LA FRIA'],
+                'MÉRIDA': ['OFICINA POSTAL MERIDA', 'OFICINA POSTAL EJIDO', 'OFICINA POSTAL EL VIGIA'],
+                'GUÁRICO': ['OFICINA POSTAL SAN JUAN DE LOS MORROS', 'OFICINA POSTAL CALABOZO', 'OFICINA POSTAL VALLE DE LA PASCUA', 'OFICINA POSTAL ZARAZA'],
+                'MONAGAS': ['OFICINA POSTAL MATURIN', 'OFICINA POSTAL PUNTA DE MATA', 'OFICINA POSTAL CARIPITO']
+            };
+            if (respaldo[estado]) {
+                respaldo[estado].forEach(opt => {
+                    let o = document.createElement('option');
+                    o.value = opt;
+                    o.textContent = opt;
+                    selectOpt.appendChild(o);
+                });
+            } else {
+                selectOpt.innerHTML = '<option value="">-- No hay OPTs en este Estado (Contacte a su Gerente) --</option>';
+            }
+        }
+    });
+}
+
+// --- LOGIN ---
+function handleLogin(event, tipo) {
+    event.preventDefault();
+    let payload = { accion: 'login', tipo: tipo };
+    
+    if (tipo === 'altos') {
+        payload.rol = document.getElementById('rol-alto').value;
+        payload.clave = document.getElementById('pass-alto').value;
+    } else if (tipo === 'director') {
+        payload.rol = document.getElementById('rol-director').value;
+        payload.correo = document.getElementById('correo-director').value;
+        payload.clave = document.getElementById('pass-director').value;
+    } else if (tipo === 'gerente') {
+        payload.rol = document.getElementById('estado-gerente').value;
+        payload.clave = document.getElementById('pass-gerente').value;
+    } else if (tipo === 'opt') {
+        payload.rol = document.getElementById('opt-seleccion').value;
+        payload.clave = document.getElementById('pass-opt').value;
+    }
+
+    enviarAScript(payload, function(data) {
+        if (data.ok && data.requiereCambio) {
+            currentUser = { rol: payload.rol, nombre: payload.correo || payload.rol, estado: payload.rol };
+            currentUser.correo = data.correo || payload.correo;
+            showScreen('change-pass-screen');
+        } else if (data.ok) {
+            currentToken = data.token;
+            currentUser = data.usuario;
+            loginSuccess();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    });
+}
+
+// --- CAMBIO DE CLAVE ---
+function handleChangePass(event) {
+    event.preventDefault();
+    const newPass = document.getElementById('new-pass').value;
+    if (newPass.length === 4 && !isNaN(newPass)) {
+        enviarAScript({ accion: 'cambiarClave', correo: currentUser.correo, nuevaClave: newPass }, function(data) {
+            if (data.ok) {
+                alert('Clave guardada correctamente.');
+                let loginPayload = { accion: 'login', tipo: currentUser.rol === 'DIRECTOR' ? 'director' : (currentUser.rol === 'JEFE_OPT' ? 'opt' : (currentUser.rol === 'GERENTE_ESTADO' ? 'gerente' : 'altos')), correo: currentUser.correo, rol: currentUser.estado, clave: newPass };
+                enviarAScript(loginPayload, function(data2) {
+                    if (data2.ok) { currentToken = data2.token; currentUser = data2.usuario; loginSuccess(); }
+                    else { alert('Error al iniciar sesión.'); logout(); }
+                });
+            } else { alert('Error al guardar clave: ' + data.error); }
+        });
+    } else { alert('La clave debe tener 4 dígitos.'); }
+}
+
+function loginSuccess() {
+    document.getElementById('user-name-display').textContent = currentUser.nombre;
+    showScreen('dashboard-screen');
+    cargarDashboard();
+}
+
+function logout() {
+    currentUser = null; currentToken = null;
+    document.getElementById('new-pass').value = '';
+    showScreen('login-screen');
+}
+
+// --- DASHBOARD ---
+function cargarDashboard() {
+    enviarAScript({ accion: 'obtenerDashboard', token: currentToken }, function(data) {
+        if (data.ok) {
+            document.querySelectorAll('.stat-number')[0].textContent = data.data.totalPadron;
+            document.querySelectorAll('.stat-number')[1].textContent = data.data.totalVotos;
+        }
+    });
+    updateDashboardView();
+}
+
+function updateDashboardView() {
+    const contentDiv = document.getElementById('role-content');
+    if (currentUser.rol === 'DIRECTOR') {
+        contentDiv.innerHTML = `
+            <h3 style="margin-bottom:15px; color:#0033A0; text-align:center;">Panel de Director</h3>
+            <p style="margin-bottom:20px; font-size:14px; text-align:center;">Jurisdicción: <b>${currentUser.estado || 'Nacional'}</b></p>
+            <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+                <button class="btn-primary" style="width:auto; padding:15px 30px;" onclick="abrirModalCargaVoto()">Cargar Voto</button>
+                <button class="btn-primary" style="width:auto; padding:15px 30px; background:#0033A0;" onclick="abrirModalGerentes()">Gestionar Gerentes y Claves</button>
+            </div>
+        `;
+    } else if (currentUser.rol === 'GERENTE_ESTADO') {
+        contentDiv.innerHTML = `
+            <h3 style="margin-bottom:15px; color:#0033A0; text-align:center;">Panel de Gerente de Estado</h3>
+            <p style="margin-bottom:20px; font-size:14px; text-align:center;">Estado: <b>${currentUser.estado}</b></p>
+            <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+                <button class="btn-primary" style="width:auto; padding:15px 30px;" onclick="abrirModalCargaVoto()">Cargar Voto</button>
+                <button class="btn-primary" style="width:auto; padding:15px 30px; background:#0033A0;" onclick="abrirModalOpts()">Ver OPTs de mi Estado</button>
+            </div>
+        `;
+    } else if (currentUser.rol === 'JEFE_OPT') {
+        contentDiv.innerHTML = `
+            <h3 style="margin-bottom:15px; color:#0033A0; text-align:center;">Panel de Jefe de OPT</h3>
+            <p style="margin-bottom:20px; font-size:14px; text-align:center;">OPT: <b>${currentUser.estado}</b></p>
+            <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+                <button class="btn-primary" style="width:auto; padding:15px 30px;" onclick="abrirModalCargaVoto()">Cargar Voto</button>
+            </div>
+        `;
+    } else {
+        contentDiv.innerHTML = `
+            <h3 style="margin-bottom:15px; color:#0033A0; text-align:center;">Panel de ${currentUser.rol}</h3>
+            <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+                <button class="btn-primary" style="width:auto; padding:15px 30px; background:#dc3545;" onclick="abrirModalNovedades()">Gestionar Novedades</button>
+            </div>
+        `;
+    }
+}
+
+// --- MODALES ---
+function abrirModalGerentes() {
+    enviarAScript({ accion: 'obtenerGerentesPorDirector', token: currentToken }, function(data) {
+        let tabla = '<tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">Estado</th><th style="padding:5px; border:1px solid #ddd;">Clave</th></tr>';
+        if (data.ok && data.data.length > 0) {
+            data.data.forEach((estado, index) => {
+                const clave = String(1000 + index).slice(-4);
+                tabla += `<tr><td style="padding:5px; border:1px solid #ddd;">${estado}</td><td style="padding:5px; border:1px solid #ddd; font-weight:bold;">${clave}</td></tr>`;
+            });
+        } else {
+            tabla += '<tr><td colspan="2" style="text-align:center;">No hay estados asignados.</td></tr>';
+        }
+        let modalHTML = `
+            <div id="modal-gerentes" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
+                <div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:500px; max-height: 80vh; overflow-y: auto;">
+                    <h3 style="margin-bottom:15px; color:#0033A0;">Gerentes de Estado y Claves</h3>
+                    <p style="font-size:14px; margin-bottom:15px;">Entregue estas claves a sus Gerentes de Estado.</p>
+                    <table style="width:100%; border-collapse: collapse; font-size:12px;">${tabla}</table>
+                    <button onclick="cerrarModal('modal-gerentes')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button>
+                </div>
+            </div>`;
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+    });
+}
+
+function abrirModalOpts() {
+    enviarAScript({ accion: 'obtenerOptsPorEstado', token: currentToken, estado: currentUser.estado }, function(data) {
+        let tabla = '<tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">OPT</th><th style="padding:5px; border:1px solid #ddd;">Clave</th></tr>';
+        if (data.ok && data.data.length > 0) {
+            data.data.forEach((opt, index) => {
+                const clave = String(2000 + index).slice(-4);
+                tabla += `<tr><td style="padding:5px; border:1px solid #ddd;">${opt}</td><td style="padding:5px; border:1px solid #ddd; font-weight:bold;">${clave}</td></tr>`;
+            });
+        } else {
+            tabla += '<tr><td colspan="2" style="text-align:center;">No hay OPTs en este estado.</td></tr>';
+        }
+        let modalHTML = `
+            <div id="modal-opts" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
+                <div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:500px; max-height: 80vh; overflow-y: auto;">
+                    <h3 style="margin-bottom:15px; color:#0033A0;">OPTs de ${currentUser.estado}</h3>
+                    <p style="font-size:14px; margin-bottom:15px;">Entregue estas claves a sus Jefes de OPT.</p>
+                    <table style="width:100%; border-collapse: collapse; font-size:12px;">${tabla}</table>
+                    <button onclick="cerrarModal('modal-opts')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button>
+                </div>
+            </div>`;
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+    });
+}
+
+function abrirModalCargaVoto() {
+    let modalHTML = `
+        <div id="modal-carga" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
+            <div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:400px;">
+                <h3 style="margin-bottom:15px; color:#0033A0;">Registrar Voto</h3>
+                <div class="input-group"><label>Cédula del Votante:</label><input type="text" id="voto-cedula" placeholder="Ej: 14551754" onblur="buscarEnPadron()"></div>
+                <div id="info-padron" style="display:none; background:#e8f4f8; padding:10px; border-radius:5px; margin-bottom:15px; border-left: 4px solid #0033A0;">
+                    <p style="margin:0; font-size:14px;"><b>Nombre:</b> <span id="info-nombre">-</span></p>
+                    <p style="margin:0; font-size:14px;"><b>Cargo:</b> <span id="info-cargo">-</span></p>
+                    <p style="margin:0; font-size:14px;"><b>Ubicación:</b> <span id="info-ubicacion">-</span></p>
+                </div>
+                <div class="input-group" id="grupo-nombre" style="display:none;"><label>Nombre Completo (No está en padrón):</label><input type="text" id="voto-nombre" placeholder="Nombre del votante"></div>
+                <div class="input-group" id="grupo-commit" style="display:none; background:#fff3cd; padding:10px; border-radius:5px; border:1px solid #ffeeba;">
+                    <label style="color:#856404;">⚠️ Novedad Detectada</label>
+                    <p style="font-size:12px; color:#856404; margin-bottom:5px;">La cédula no está en el padrón. Escriba el motivo:</p>
+                    <input type="text" id="voto-commit" placeholder="Justificación" style="width:100%; padding:5px;">
+                </div>
+                <div class="input-group"><label>Foto (Opcional):</label><input type="file" id="voto-foto" accept="image/*" style="border: 1px solid #ccc; padding: 5px; width: 100%; border-radius: 5px;"></div>
+                <button class="btn-primary" onclick="guardarVotoReal()" style="margin-top:15px;">Guardar Voto</button>
+                <button onclick="cerrarModal('modal-carga')" style="width:100%; margin-top:10px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cancelar</button>
+            </div>
+        </div>`;
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+function abrirModalNovedades() {
+    let modalHTML = `
+        <div id="modal-novedades" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center; z-index:1000;">
+            <div style="background:white; padding:20px; border-radius:10px; width:95%; max-width:800px; max-height: 90vh; overflow-y: auto;">
+                <h3 style="margin-bottom:15px; color:#dc3545;">Gestión de Novedades</h3>
+                <table style="width:100%; border-collapse: collapse; font-size:12px;" id="tabla-novedades">
+                    <thead><tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">Cédula</th><th style="padding:5px; border:1px solid #ddd;">Nombre</th><th style="padding:5px; border:1px solid #ddd;">Reportado Por</th><th style="padding:5px; border:1px solid #ddd;">Commit</th><th style="padding:5px; border:1px solid #ddd;">Acciones</th></tr></thead>
+                    <tbody id="tbody-novedades"><tr><td colspan="5" style="text-align:center; padding:10px;">Cargando...</td></tr></tbody>
+                </table>
+                <button onclick="cerrarModal('modal-novedades')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button>
+            </div>
+        </div>`;
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    cargarNovedades();
+}
+
+function cargarNovedades() {
+    enviarAScript({ accion: 'obtenerNovedades', token: currentToken }, function(data) {
+        const tbody = document.getElementById('tbody-novedades');
+        if (data.ok && data.data.length > 0) {
+            tbody.innerHTML = '';
+            data.data.forEach(n => {
+                let tr = document.createElement('tr');
+                tr.innerHTML = `<td style="padding:5px; border:1px solid #ddd;">${n.cedula}</td><td style="padding:5px; border:1px solid #ddd;">${n.nombre}</td><td style="padding:5px; border:1px solid #ddd;">${n.reportadoPor}</td><td style="padding:5px; border:1px solid #ddd;">${n.commit}</td><td style="padding:5px; border:1px solid #ddd;"><button onclick="gestionarNovedad(${n.fila}, 'VALIDAR')" style="background:#28a745; color:white; border:none; padding:5px; border-radius:3px; cursor:pointer;">Validar</button><button onclick="gestionarNovedad(${n.fila}, 'INACTIVAR')" style="background:#dc3545; color:white; border:none; padding:5px; border-radius:3px; cursor:pointer;">Inactivar</button></td>`;
+                tbody.appendChild(tr);
+            });
+        } else { tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:10px;">No hay novedades pendientes.</td></tr>`; }
+    });
+}
+
+function gestionarNovedad(fila, accion) {
+    if (!confirm(`¿Está seguro de ${accion} esta novedad?`)) return;
+    enviarAScript({ accion: 'gestionarNovedad', token: currentToken, fila: fila, accionNovedad: accion }, function(data) {
+        if (data.ok) { alert(data.mensaje); cargarNovedades(); cargarDashboard(); }
+        else { alert("Error: " + data.error); }
+    });
+}
+
+function buscarEnPadron() {
+    const cedula = document.getElementById('voto-cedula').value;
+    if (!cedula || cedula.length < 5) return;
+    enviarAScript({ accion: 'consultarPadron', token: currentToken, cedula: cedula }, function(data) {
+        const infoDiv = document.getElementById('info-padron');
+        const grupoNombre = document.getElementById('grupo-nombre');
+        const grupoCommit = document.getElementById('grupo-commit');
+        if (data.ok && data.encontrado) {
+            infoDiv.style.display = 'block';
+            document.getElementById('info-nombre').textContent = data.datos.nombre;
+            document.getElementById('info-cargo').textContent = data.datos.cargo;
+            document.getElementById('info-ubicacion').textContent = data.datos.ubicacion;
+            grupoNombre.style.display = 'none'; grupoCommit.style.display = 'none';
+        } else {
+            infoDiv.style.display = 'none'; grupoNombre.style.display = 'block'; grupoCommit.style.display = 'block';
+        }
+    });
+}
+
+function guardarVotoReal() {
+    const cedula = document.getElementById('voto-cedula').value;
+    const nombre = document.getElementById('voto-nombre').value;
+    const
