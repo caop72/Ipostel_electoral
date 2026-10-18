@@ -3,161 +3,150 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IPOSTEL - Control Electoral 2026</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>Sistema de Monitoreo Electoral - IPOSTEL</title>
+    
+    <!-- Chart.js para los gráficos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #f4f7f6; color: #333; padding: 20px; }
+        
+        .container { max-width: 1200px; margin: 0 auto; }
+        
+        /* Estilos del Header */
+        header { background: white; padding: 15px 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; border-left: 5px solid #C8102E; }
+        header h1 { color: #0033A0; font-size: 22px; margin-bottom: 5px; }
+        header p { color: #666; font-size: 14px; }
+        
+        /* Tarjetas de Estadísticas */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .stat-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); text-align: center; }
+        .stat-title { font-size: 14px; color: #666; margin-bottom: 10px; font-weight: 600; }
+        .stat-number { font-size: 28px; font-weight: bold; color: #0033A0; }
+        .stat-number.green { color: #28a745; }
+        .stat-number.orange { color: #ffc107; }
+        .stat-number.red { color: #dc3545; }
+        
+        /* Botones */
+        .btn-primary { background-color: #C8102E; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-primary:hover { background-color: #a00d25; }
+        
+        /* Contenedor de los gráficos */
+        .charts-container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 30px; }
+        .chart-title { text-align: center; color: #0033A0; margin-bottom: 15px; font-size: 16px; }
+        
+        /* Importante para Chart.js */
+        .chart-wrapper { position: relative; height: 350px; width: 100%; margin-bottom: 40px; }
+
+        /* Tabla de Por Verificar */
+        .table-container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 30px; display: none; }
+        .table-container h3 { color: #dc3545; margin-bottom: 15px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { padding: 8px; border: 1px solid #ddd; text-align: left; }
+        th { background: #f0f0f0; }
+
+        /* Modales (Ocultos por defecto) */
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; padding: 20px; border-radius: 10px; width: 90%; max-width: 400px; }
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; margin-bottom: 5px; font-size: 14px; font-weight: 600; color: #333; }
+        .input-group input, .input-group textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 5px; }
+        
+        /* LOGIN */
+        #login-container { max-width: 400px; margin: 100px auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; }
+        #login-container h2 { color: #0033A0; margin-bottom: 20px; }
+        
+        /* DASHBOARD (Oculto hasta login) */
+        #dashboard-container { display: none; }
+    </style>
 </head>
 <body>
-    <div id="app">
-        <div id="login-screen" class="screen active">
-            <div class="login-container">
-                <div class="logo-header">
-                    <h1><i class="fa-solid fa-envelope"></i> IPOSTEL</h1>
-                    <p>Control Electoral - Consulta Popular 2026</p>
-                </div>
-                <div class="tabs">
-                    <button class="tab-btn active" onclick="switchTab('altos-cargos')">Altos Cargos</button>
-                    <button class="tab-btn" onclick="switchTab('directores')">Directores</button>
-                    <button class="tab-btn" onclick="switchTab('gerentes')">Gerentes</button>
-                    <button class="tab-btn" onclick="switchTab('jefes-opt')">Jefes de OPT</button>
-                </div>
 
-                <form id="form-altos" class="login-form active" onsubmit="handleLogin(event, 'altos')">
-                    <div class="input-group">
-                        <label>Seleccione su Rol:</label>
-                        <select id="rol-alto" required>
-                            <option value="">-- Seleccione --</option>
-                            <option value="PRESIDENCIA">Presidencia</option>
-                            <option value="DESPACHO">Despacho</option>
-                            <option value="OBSERVATORIO">Observatorio</option>
-                        </select>
-                    </div>
-                    <div class="input-group">
-                        <label>Clave (Inicial: Ipostel):</label>
-                        <input type="password" id="pass-alto" placeholder="Ingrese su clave" required>
-                    </div>
-                    <button type="submit" class="btn-primary">Ingresar</button>
-                </form>
+    <!-- PANTALLA DE LOGIN -->
+    <div id="login-container">
+        <h2>Sistema de Monitoreo Electoral</h2>
+        <div class="input-group">
+            <label>Usuario (Correo)</label>
+            <input type="email" id="login-correo" placeholder="correo@ejemplo.com">
+        </div>
+        <div class="input-group">
+            <label>Contraseña</label>
+            <input type="password" id="login-clave" placeholder="********">
+        </div>
+        <button class="btn-primary" style="width: 100%;" onclick="iniciarSesion()">Ingresar</button>
+    </div>
 
-                <form id="form-directores" class="login-form" onsubmit="handleLogin(event, 'director')">
-                    <div class="input-group">
-                        <label>Seleccione su Estado/Dirección:</label>
-                        <select id="rol-director" required>
-                            <option value="">-- Seleccione su asignación --</option>
-                            <option value="CAPITAL">Región Capital (GH / CNC)</option>
-                            <option value="LARA">Estado Lara (Tecnología)</option>
-                            <option value="ZULIA">Estado Zulia (Atención al Ciudadano)</option>
-                            <option value="CARABOBO_SUCRE">Carabobo y Sucre (Rel. Internacionales)</option>
-                            <option value="ARAGUA">Estado Aragua (Consultoría Jurídica)</option>
-                            <option value="TRUJILLO_FALCON">Trujillo y Falcón (Comunicacional)</option>
-                            <option value="MONAGAS_DELTA">Monagas y Delta Amacuro (Administración)</option>
-                            <option value="BOLIVAR">Estado Bolívar (Auditoría)</option>
-                            <option value="TACHIRA_MERIDA">Táchira y Mérida (Despacho)</option>
-                            <option value="BARINAS">Estado Barinas (Infraestructura)</option>
-                            <option value="COJEDES">Estado Cojedes (Gestión Operativa)</option>
-                            <option value="APURE_AMAZONAS">Apure y Amazonas (Seguridad Postal)</option>
-                            <option value="PORTUGUESA_NUEVA_ESPARTA">Portuguesa y Nueva Esparta (Planificación)</option>
-                            <option value="ANZOATEGUI">Estado Anzoátegui (Comercial)</option>
-                            <option value="GUARICO_YARACUY">Guárico y Yaracuy (Sector Postal)</option>
-                        </select>
-                    </div>
-                    <div class="input-group">
-                        <label>Correo Electrónico:</label>
-                        <input type="email" id="correo-director" placeholder="ejemplo@ipostel.gob.ve" required>
-                    </div>
-                    <div class="input-group">
-                        <label>Clave (Inicial: Ipostel):</label>
-                        <input type="password" id="pass-director" placeholder="Ingrese su clave" required>
-                    </div>
-                    <button type="submit" class="btn-primary">Registrarse / Ingresar</button>
-                </form>
+    <!-- DASHBOARD (Se muestra al iniciar sesión) -->
+    <div id="dashboard-container" class="container">
+        <!-- Header -->
+        <header>
+            <h1>Sistema de Monitoreo Electoral</h1>
+            <p>Bienvenido al panel de control ODP 004-2026.</p>
+        </header>
 
-                <form id="form-gerentes" class="login-form" onsubmit="handleLogin(event, 'gerente')">
-                    <div class="input-group">
-                        <label>Seleccione su Estado:</label>
-                        <select id="estado-gerente" required>
-                            <option value="">-- Seleccione su Estado --</option>
-                        </select>
-                    </div>
-                    <div class="input-group">
-                        <label>Clave (Proporcionada por su Director):</label>
-                        <input type="password" id="pass-gerente" placeholder="Ingrese su clave" required>
-                    </div>
-                    <button type="submit" class="btn-primary">Ingresar</button>
-                </form>
-
-                <form id="form-jefes-opt" class="login-form" onsubmit="handleLogin(event, 'opt')">
-                    <div class="input-group">
-                        <label>Seleccione su Estado:</label>
-                        <select id="estado-opt" required onchange="cargarOptsPorEstado()">
-                            <option value="">-- Seleccione su Estado --</option>
-                        </select>
-                    </div>
-                    <div class="input-group">
-                        <label>Seleccione su OPT (Sede):</label>
-                        <select id="opt-seleccion" required>
-                            <option value="">-- Primero seleccione un Estado --</option>
-                        </select>
-                    </div>
-                    <div class="input-group">
-                        <label>Clave (Proporcionada por su Gerente):</label>
-                        <input type="password" id="pass-opt" placeholder="Ingrese su clave" required>
-                    </div>
-                    <button type="submit" class="btn-primary">Ingresar</button>
-                </form>
+        <!-- Tarjetas Estadísticas -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-title">Total Padrón</div>
+                <div class="stat-number" id="stat-padron">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-title">Votos Registrados</div>
+                <div class="stat-number green" id="stat-votos">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-title">% Participación</div>
+                <div class="stat-number orange" id="stat-participacion">0%</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-title">Novedades Pendientes</div>
+                <div class="stat-number red" id="stat-novedades">0</div>
             </div>
         </div>
 
-        <div id="change-pass-screen" class="screen">
-            <div class="login-container">
-                <h2>Actualización de Seguridad</h2>
-                <p>Por su seguridad, debe cambiar su clave inicial por una de 4 dígitos.</p>
-                <form onsubmit="handleChangePass(event)">
-                    <div class="input-group">
-                        <label>Nueva Clave (4 dígitos):</label>
-                        <input type="password" id="new-pass" pattern="\d{4}" maxlength="4" placeholder="Ej: 1234" required>
-                    </div>
-                    <button type="submit" class="btn-primary">Guardar y Continuar</button>
-                </form>
+        <!-- Botones Dinámicos por Rol -->
+        <div id="role-content" style="text-align: center; margin-bottom: 30px;"></div>
+
+        <!-- Gráficos -->
+        <div id="charts-container" class="charts-container">
+            <h3 class="chart-title">Participación por Estado (% del Padrón)</h3>
+            <div class="chart-wrapper">
+                <canvas id="chartEstados"></canvas>
+            </div>
+
+            <h3 class="chart-title">Avance por Dirección</h3>
+            <div class="chart-wrapper">
+                <canvas id="chartDirecciones"></canvas>
+            </div>
+
+            <h3 class="chart-title">Curva de Rendimiento (Votos por Hora)</h3>
+            <div class="chart-wrapper" style="height: 250px;">
+                <canvas id="chartHoras"></canvas>
             </div>
         </div>
 
-        <div id="dashboard-screen" class="screen">
-            <header class="app-header">
-                <div class="user-info">
-                    <i class="fa-solid fa-user-circle"></i>
-                    <span id="user-name-display">Cargando...</span>
-                </div>
-                <button onclick="logout()" class="btn-logout"><i class="fa-solid fa-sign-out-alt"></i> Salir</button>
-            </header>
-            <main class="dashboard-content">
-                <div class="welcome-card">
-                    <h2>Sistema de Monitoreo Electoral</h2>
-                    <p>Bienvenido al panel de control ODP 004-2026.</p>
-                </div>
-                
-                <div class="stats-grid" id="stats-container">
-                    <div class="stat-card"><h3>Total Padrón</h3><p class="stat-number">---</p></div>
-                    <div class="stat-card"><h3>Votos Registrados</h3><p class="stat-number" style="color: var(--color-exito);">---</p></div>
-                    <div class="stat-card"><h3>% Participación</h3><p class="stat-number" style="color: var(--color-acento);">---</p></div>
-                    <div class="stat-card"><h3>Novedades Pendientes</h3><p class="stat-number" style="color: var(--color-alerta);">---</p></div>
-                </div>
-
-                <div id="role-content"><p style="text-align: center; color: #666;">Seleccione una opción para comenzar.</p></div>
-
-                <div id="charts-container" style="display:none; margin-top:20px;">
-                    <h3 style="text-align:center; color:#0033A0; margin-bottom:15px;">Participación por Estado (% del Padrón)</h3>
-                    <canvas id="chartEstados" style="max-height: 300px;"></canvas>
-                    <h3 style="text-align:center; color:#0033A0; margin-top:30px; margin-bottom:15px;">Avance por Dirección</h3>
-                    <canvas id="chartDirecciones" style="max-height: 300px;"></canvas>
-                    <h3 style="text-align:center; color:#0033A0; margin-top:30px; margin-bottom:15px;">Curva de Rendimiento (Votos por Hora)</h3>
-                    <canvas id="chartHoras" style="max-height: 250px;"></canvas>
-                </div>
-            </main>
+        <!-- Tabla de Cédulas por Verificar -->
+        <div id="por-verificar-container" class="table-container">
+            <h3>Por Verificar en Base de Datos</h3>
+            <p style="font-size:13px; color:#666; margin-bottom:15px;">Cédulas que no están en el padrón. Verifique con RRHH si son personal de IPOSTEL.</p>
+            <table id="tabla-por-verificar">
+                <thead>
+                    <tr>
+                        <th>Cédula</th>
+                        <th>Nombre</th>
+                        <th>Reportado Por</th>
+                        <th>Fecha</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody-por-verificar">
+                    <tr><td colspan="4" style="text-align:center;">Cargando...</td></tr>
+                </tbody>
+            </table>
         </div>
     </div>
 
-    <script src="app.js?v=20261019-2260"></script>
+    <!-- SCRIPTS -->
+    <script src="app.js?v=20261018-3600"></script>
 </body>
 </html>
