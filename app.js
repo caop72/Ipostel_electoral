@@ -100,6 +100,7 @@ function cargarDashboard() {
 
 function updateDashboardView() {
     const contentDiv = document.getElementById('role-content');
+    
     if (currentUser.rol === 'DIRECTOR') {
         contentDiv.innerHTML = `
             <h3 style="margin-bottom:15px; color:#0033A0; text-align:center;">Panel de Director</h3>
@@ -113,46 +114,47 @@ function updateDashboardView() {
                 </button>
             </div>
         `;
-    } else {
-        contentDiv.innerHTML = `<h3 style="text-align:center; color:#0033A0;">Panel de ${currentUser.rol}</h3>`;
+    } else if (currentUser.rol === 'OBSERVATORIO' || currentUser.rol === 'PRESIDENCIA' || currentUser.rol === 'DESPACHO') {
+        contentDiv.innerHTML = `
+            <h3 style="margin-bottom:15px; color:#0033A0; text-align:center;">Panel de ${currentUser.rol}</h3>
+            <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+                <button class="btn-primary" style="width:auto; padding:15px 30px; background:#dc3545;" onclick="abrirModalNovedades()">
+                    <i class="fa-solid fa-exclamation-triangle"></i> Gestionar Novedades
+                </button>
+            </div>
+        `;
     }
 }
 
-// --- MODAL DE CARGA ---
+// --- MODAL DE CARGA (Ya existente) ---
 function abrirModalCargaVoto() {
+    // ... (El mismo código que tenías antes para el modal de carga) ...
     let modalHTML = `
         <div id="modal-carga" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
             <div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:400px;">
                 <h3 style="margin-bottom:15px; color:#0033A0;">Registrar Voto</h3>
-                
                 <div class="input-group">
                     <label>Cédula del Votante:</label>
                     <input type="text" id="voto-cedula" placeholder="Ej: 14551754" onblur="buscarEnPadron()">
                 </div>
-
-                <!-- Aquí se mostrará la info del padrón -->
                 <div id="info-padron" style="display:none; background:#e8f4f8; padding:10px; border-radius:5px; margin-bottom:15px; border-left: 4px solid #0033A0;">
                     <p style="margin:0; font-size:14px;"><b>Nombre:</b> <span id="info-nombre">-</span></p>
                     <p style="margin:0; font-size:14px;"><b>Cargo:</b> <span id="info-cargo">-</span></p>
                     <p style="margin:0; font-size:14px;"><b>Ubicación:</b> <span id="info-ubicacion">-</span></p>
                 </div>
-                
                 <div class="input-group" id="grupo-nombre" style="display:none;">
                     <label>Nombre Completo (No está en padrón):</label>
                     <input type="text" id="voto-nombre" placeholder="Nombre del votante">
                 </div>
-
                 <div class="input-group" id="grupo-commit" style="display:none; background:#fff3cd; padding:10px; border-radius:5px; border:1px solid #ffeeba;">
                     <label style="color:#856404;">⚠️ Novedad Detectada</label>
                     <p style="font-size:12px; color:#856404; margin-bottom:5px;">La cédula no está en el padrón. Escriba el motivo:</p>
                     <input type="text" id="voto-commit" placeholder="Justificación del reporte" style="width:100%; padding:5px;">
                 </div>
-                
                 <div class="input-group">
                     <label>Foto (Opcional):</label>
                     <input type="file" id="voto-foto" accept="image/*" capture="environment" style="border: 1px solid #ccc; padding: 5px; width: 100%; border-radius: 5px;">
                 </div>
-                
                 <button class="btn-primary" onclick="guardarVotoReal()" style="margin-top:15px;">Guardar Voto</button>
                 <button onclick="cerrarModal('modal-carga')" style="width:100%; margin-top:10px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cancelar</button>
             </div>
@@ -161,116 +163,79 @@ function abrirModalCargaVoto() {
     document.body.insertAdjacentHTML('beforeend', modalHTML);
 }
 
-function abrirModalClaves() {
+// --- NUEVO: MODAL DE NOVEDADES PARA OBSERVATORIO ---
+function abrirModalNovedades() {
     let modalHTML = `
-        <div id="modal-claves" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
-            <div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:400px; max-height: 80vh; overflow-y: auto;">
-                <h3 style="margin-bottom:15px; color:#0033A0;">Claves de OPTs</h3>
-                <p style="font-size:14px; margin-bottom:15px;">Entregue estas claves vía WhatsApp a sus Jefes de OPT.</p>
-                <table style="width:100%; border-collapse: collapse; font-size:12px;">
-                    <tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">OPT</th><th style="padding:5px; border:1px solid #ddd;">Clave</th></tr>
-                    <tr><td style="padding:5px; border:1px solid #ddd;">OPT Central</td><td style="padding:5px; border:1px solid #ddd; font-weight:bold;">1234</td></tr>
+        <div id="modal-novedades" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center; z-index:1000;">
+            <div style="background:white; padding:20px; border-radius:10px; width:95%; max-width:800px; max-height: 90vh; overflow-y: auto;">
+                <h3 style="margin-bottom:15px; color:#dc3545;">Gestión de Novedades</h3>
+                <p style="font-size:14px; margin-bottom:15px;">Revise los casos que no están en el padrón. Valide o Inactive.</p>
+                
+                <table style="width:100%; border-collapse: collapse; font-size:12px;" id="tabla-novedades">
+                    <thead>
+                        <tr style="background:#f0f0f0;">
+                            <th style="padding:5px; border:1px solid #ddd;">Cédula</th>
+                            <th style="padding:5px; border:1px solid #ddd;">Nombre</th>
+                            <th style="padding:5px; border:1px solid #ddd;">Reportado Por</th>
+                            <th style="padding:5px; border:1px solid #ddd;">Commit</th>
+                            <th style="padding:5px; border:1px solid #ddd;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-novedades">
+                        <tr><td colspan="5" style="text-align:center; padding:10px;">Cargando novedades...</td></tr>
+                    </tbody>
                 </table>
-                <button onclick="cerrarModal('modal-claves')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button>
+                
+                <button onclick="cerrarModal('modal-novedades')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button>
             </div>
         </div>
     `;
     document.body.insertAdjacentHTML('beforeend', modalHTML);
+    cargarNovedades();
 }
 
-function cerrarModal(idModal) {
-    const modal = document.getElementById(idModal);
-    if(modal) modal.remove();
-}
-
-// --- NUEVA FUNCIÓN: BUSCAR EN EL PADRÓN ---
-function buscarEnPadron() {
-    const cedula = document.getElementById('voto-cedula').value;
-    if(!cedula || cedula.length < 5) return; // No buscar si está vacío o muy corto
-
-    const payload = { accion: 'consultarPadron', token: currentToken, cedula: cedula };
-    
-    fetch(API_URL, { method: 'POST', body: new URLSearchParams(payload) })
+function cargarNovedades() {
+    fetch(API_URL, { method: 'POST', body: new URLSearchParams({ accion: 'obtenerNovedades', token: currentToken }) })
     .then(res => res.json())
     .then(data => {
-        const infoDiv = document.getElementById('info-padron');
-        const grupoNombre = document.getElementById('grupo-nombre');
-        const grupoCommit = document.getElementById('grupo-commit');
-
-        if(data.ok && data.encontrado) {
-            // Lo encontramos en el padrón
-            infoDiv.style.display = 'block';
-            document.getElementById('info-nombre').textContent = data.datos.nombre;
-            document.getElementById('info-cargo').textContent = data.datos.cargo;
-            document.getElementById('info-ubicacion').textContent = data.datos.ubicacion;
-            
-            // Ocultamos los campos de novedad
-            grupoNombre.style.display = 'none';
-            grupoCommit.style.display = 'none';
-        } else {
-            // No está en el padrón
-            infoDiv.style.display = 'none';
-            grupoNombre.style.display = 'block';
-            grupoCommit.style.display = 'block';
-        }
-    })
-    .catch(err => console.error("Error al buscar en padrón:", err));
-}
-
-// --- GUARDAR VOTO ---
-function guardarVotoReal() {
-    const cedula = document.getElementById('voto-cedula').value;
-    const nombre = document.getElementById('voto-nombre').value;
-    const commit = document.getElementById('voto-commit').value;
-    const fotoInput = document.getElementById('voto-foto');
-
-    if(!cedula) { alert("Debe ingresar una cédula."); return; }
-
-    const enviarDatos = (fotoUrl) => {
-        const payload = {
-            accion: 'cargarVoto',
-            token: currentToken,
-            cedula_votante: cedula,
-            nombre_votante: nombre,
-            commit_novedad: commit,
-            foto_url: fotoUrl
-        };
-
-        fetch(API_URL, { method: 'POST', body: new URLSearchParams(payload) })
-        .then(res => res.json())
-        .then(data => {
-            if(data.ok) {
-                alert("✅ " + data.mensaje);
-                cerrarModal('modal-carga');
-                cargarDashboard();
-            } else {
-                if(data.requiereCommit) {
-                    document.getElementById('grupo-nombre').style.display = 'block';
-                    document.getElementById('grupo-commit').style.display = 'block';
-                    alert("⚠️ " + data.error);
-                } else {
-                    alert("Error: " + data.error);
-                }
-            }
-        });
-    };
-
-    if (fotoInput.files.length > 0) {
-        const file = fotoInput.files[0];
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const base64Data = e.target.result.split(',')[1];
-            const payloadFoto = { accion: 'subirFoto', token: currentToken, base64: base64Data, nombre: 'voto_' + cedula + '.jpg' };
-            
-            fetch(API_URL, { method: 'POST', body: new URLSearchParams(payloadFoto) })
-            .then(res => res.json())
-            .then(dataFoto => {
-                if(dataFoto.ok) enviarDatos(dataFoto.url);
-                else { alert("Error al subir foto: " + dataFoto.error); enviarDatos(''); }
+        const tbody = document.getElementById('tbody-novedades');
+        if(data.ok && data.data.length > 0) {
+            tbody.innerHTML = '';
+            data.data.forEach(n => {
+                let tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="padding:5px; border:1px solid #ddd;">${n.cedula}</td>
+                    <td style="padding:5px; border:1px solid #ddd;">${n.nombre}</td>
+                    <td style="padding:5px; border:1px solid #ddd;">${n.reportadoPor}</td>
+                    <td style="padding:5px; border:1px solid #ddd;">${n.commit}</td>
+                    <td style="padding:5px; border:1px solid #ddd;">
+                        <button onclick="gestionarNovedad(${n.fila}, 'VALIDAR')" style="background:#28a745; color:white; border:none; padding:5px; border-radius:3px; cursor:pointer;">Validar</button>
+                        <button onclick="gestionarNovedad(${n.fila}, 'INACTIVAR')" style="background:#dc3545; color:white; border:none; padding:5px; border-radius:3px; cursor:pointer;">Inactivar</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
             });
-        };
-        reader.readAsDataURL(file);
-    } else {
-        enviarDatos('');
-    }
+        } else {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:10px;">No hay novedades pendientes.</td></tr>`;
+        }
+    });
 }
+
+function gestionarNovedad(fila, accion) {
+    if(!confirm(`¿Está seguro de ${accion} esta novedad?`)) return;
+
+    fetch(API_URL, { method: 'POST', body: new URLSearchParams({ accion: 'gestionarNovedad', token: currentToken, fila: fila, accion: accion }) })
+    .then(res => res.json())
+    .then(data => {
+        if(data.ok) {
+            alert(data.mensaje);
+            cargarNovedades(); // Recargar la tabla
+            cargarDashboard(); // Actualizar contadores
+        } else {
+            alert("Error: " + data.error);
+        }
+    });
+}
+
+// --- RESTO DE FUNCIONES (guardarVotoReal, buscarEnPadron, etc.) ---
+// ... (Pega aquí las funciones que ya tenías: buscarEnPadron, guardarVotoReal, abrirModalClaves, cerrarModal) ...
