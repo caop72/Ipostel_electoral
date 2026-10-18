@@ -2,7 +2,6 @@ const API_URL = 'https://blue-river-9145.ipostel-monitor.workers.dev';
 let currentUser = null;
 let currentToken = null;
 
-// --- FUNCIÓN DE ENVÍO AL WORKER ---
 function enviarAScript(datos, callback) {
     fetch(API_URL, {
         method: 'POST',
@@ -14,7 +13,6 @@ function enviarAScript(datos, callback) {
     .catch(err => callback({ ok: false, error: 'Error de conexión: ' + err.message }));
 }
 
-// --- UI Y PESTAÑAS ---
 function showScreen(screenId) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(screenId).classList.add('active');
@@ -24,20 +22,16 @@ function switchTab(tabName) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     if (event && event.target) event.target.classList.add('active');
     document.querySelectorAll('.login-form').forEach(f => f.classList.remove('active'));
-    
     let formId = '';
     if (tabName === 'altos-cargos') formId = 'form-altos';
     else if (tabName === 'directores') formId = 'form-directores';
     else if (tabName === 'gerentes') formId = 'form-gerentes';
     else if (tabName === 'jefes-opt') formId = 'form-jefes-opt';
-    
     document.getElementById(formId).classList.add('active');
-
     if (tabName === 'gerentes') cargarEstadosParaGerente();
     if (tabName === 'jefes-opt') cargarEstadosParaOPT();
 }
 
-// --- CARGA DE DESPLEGABLES ---
 function cargarEstadosParaGerente() {
     const select = document.getElementById('estado-gerente');
     if (select.options.length > 1) return;
@@ -49,25 +43,17 @@ function cargarEstadosParaOPT() {
     const select = document.getElementById('estado-opt');
     if (select.options.length > 1) return;
     const estados = ['DISTRITO CAPITAL', 'MIRANDA', 'LA GUAIRA', 'LARA', 'ZULIA', 'CARABOBO', 'SUCRE', 'ARAGUA', 'TRUJILLO', 'FALCON', 'MONAGAS', 'DELTA AMACURO', 'BOLÍVAR', 'TÁCHIRA', 'MÉRIDA', 'BARINAS', 'COJEDES', 'APURE', 'AMAZONAS', 'PORTUGUESA', 'NUEVA ESPARTA', 'ANZOÁTEGUI', 'GUÁRICO', 'YARACUY'];
-    estados.forEach(e => {
-        let o = document.createElement('option');
-        o.value = e;
-        o.textContent = e;
-        select.appendChild(o);
-    });
+    estados.forEach(e => { let o = document.createElement('option'); o.value = e; o.textContent = e; select.appendChild(o); });
 }
 
-// --- FUNCIÓN CON RESPALDO PARA OPTs ---
 function cargarOptsPorEstado() {
     const estado = document.getElementById('estado-opt').value;
     const selectOpt = document.getElementById('opt-seleccion');
     selectOpt.innerHTML = '<option value="">-- Cargando OPTs... --</option>';
-
     if (!estado) {
         selectOpt.innerHTML = '<option value="">-- Primero seleccione un Estado --</option>';
         return;
     }
-
     enviarAScript({ accion: 'obtenerOptsPorEstado', estado: estado }, function(data) {
         if (data.ok && data.data && data.data.length > 0) {
             selectOpt.innerHTML = '<option value="">-- Seleccione su OPT --</option>';
@@ -78,7 +64,6 @@ function cargarOptsPorEstado() {
                 selectOpt.appendChild(o);
             });
         } else {
-            // RESPALDO: Si el backend falla, usamos una lista local para que el sistema no se detenga
             selectOpt.innerHTML = '<option value="">-- Seleccione su OPT --</option>';
             const respaldo = {
                 'ZULIA': ['OFICINA POSTAL MARACAIBO', 'OFICINA POSTAL CABIMAS', 'OFICINA POSTAL CIUDAD OJEDA', 'OFICINA POSTAL MENE GRANDE'],
@@ -100,17 +85,15 @@ function cargarOptsPorEstado() {
                     selectOpt.appendChild(o);
                 });
             } else {
-                selectOpt.innerHTML = '<option value="">-- No hay OPTs en este Estado (Contacte a su Gerente) --</option>';
+                selectOpt.innerHTML = '<option value="">-- No hay OPTs en este Estado --</option>';
             }
         }
     });
 }
 
-// --- LOGIN ---
 function handleLogin(event, tipo) {
     event.preventDefault();
     let payload = { accion: 'login', tipo: tipo };
-    
     if (tipo === 'altos') {
         payload.rol = document.getElementById('rol-alto').value;
         payload.clave = document.getElementById('pass-alto').value;
@@ -125,7 +108,6 @@ function handleLogin(event, tipo) {
         payload.rol = document.getElementById('opt-seleccion').value;
         payload.clave = document.getElementById('pass-opt').value;
     }
-
     enviarAScript(payload, function(data) {
         if (data.ok && data.requiereCambio) {
             currentUser = { rol: payload.rol, nombre: payload.correo || payload.rol, estado: payload.rol };
@@ -141,7 +123,6 @@ function handleLogin(event, tipo) {
     });
 }
 
-// --- CAMBIO DE CLAVE ---
 function handleChangePass(event) {
     event.preventDefault();
     const newPass = document.getElementById('new-pass').value;
@@ -171,7 +152,6 @@ function logout() {
     showScreen('login-screen');
 }
 
-// --- DASHBOARD ---
 function cargarDashboard() {
     enviarAScript({ accion: 'obtenerDashboard', token: currentToken }, function(data) {
         if (data.ok) {
@@ -220,7 +200,6 @@ function updateDashboardView() {
     }
 }
 
-// --- MODALES ---
 function abrirModalGerentes() {
     enviarAScript({ accion: 'obtenerGerentesPorDirector', token: currentToken }, function(data) {
         let tabla = '<tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">Estado</th><th style="padding:5px; border:1px solid #ddd;">Clave</th></tr>';
@@ -232,15 +211,7 @@ function abrirModalGerentes() {
         } else {
             tabla += '<tr><td colspan="2" style="text-align:center;">No hay estados asignados.</td></tr>';
         }
-        let modalHTML = `
-            <div id="modal-gerentes" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
-                <div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:500px; max-height: 80vh; overflow-y: auto;">
-                    <h3 style="margin-bottom:15px; color:#0033A0;">Gerentes de Estado y Claves</h3>
-                    <p style="font-size:14px; margin-bottom:15px;">Entregue estas claves a sus Gerentes de Estado.</p>
-                    <table style="width:100%; border-collapse: collapse; font-size:12px;">${tabla}</table>
-                    <button onclick="cerrarModal('modal-gerentes')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button>
-                </div>
-            </div>`;
+        let modalHTML = `<div id="modal-gerentes" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;"><div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:500px; max-height:80vh; overflow-y:auto;"><h3 style="margin-bottom:15px; color:#0033A0;">Gerentes de Estado y Claves</h3><p style="font-size:14px; margin-bottom:15px;">Entregue estas claves a sus Gerentes de Estado.</p><table style="width:100%; border-collapse:collapse; font-size:12px;">${tabla}</table><button onclick="cerrarModal('modal-gerentes')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button></div></div>`;
         document.body.insertAdjacentHTML('beforeend', modalHTML);
     });
 }
@@ -256,56 +227,18 @@ function abrirModalOpts() {
         } else {
             tabla += '<tr><td colspan="2" style="text-align:center;">No hay OPTs en este estado.</td></tr>';
         }
-        let modalHTML = `
-            <div id="modal-opts" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
-                <div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:500px; max-height: 80vh; overflow-y: auto;">
-                    <h3 style="margin-bottom:15px; color:#0033A0;">OPTs de ${currentUser.estado}</h3>
-                    <p style="font-size:14px; margin-bottom:15px;">Entregue estas claves a sus Jefes de OPT.</p>
-                    <table style="width:100%; border-collapse: collapse; font-size:12px;">${tabla}</table>
-                    <button onclick="cerrarModal('modal-opts')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button>
-                </div>
-            </div>`;
+        let modalHTML = `<div id="modal-opts" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;"><div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:500px; max-height:80vh; overflow-y:auto;"><h3 style="margin-bottom:15px; color:#0033A0;">OPTs de ${currentUser.estado}</h3><p style="font-size:14px; margin-bottom:15px;">Entregue estas claves a sus Jefes de OPT.</p><table style="width:100%; border-collapse:collapse; font-size:12px;">${tabla}</table><button onclick="cerrarModal('modal-opts')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button></div></div>`;
         document.body.insertAdjacentHTML('beforeend', modalHTML);
     });
 }
 
 function abrirModalCargaVoto() {
-    let modalHTML = `
-        <div id="modal-carga" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
-            <div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:400px;">
-                <h3 style="margin-bottom:15px; color:#0033A0;">Registrar Voto</h3>
-                <div class="input-group"><label>Cédula del Votante:</label><input type="text" id="voto-cedula" placeholder="Ej: 14551754" onblur="buscarEnPadron()"></div>
-                <div id="info-padron" style="display:none; background:#e8f4f8; padding:10px; border-radius:5px; margin-bottom:15px; border-left: 4px solid #0033A0;">
-                    <p style="margin:0; font-size:14px;"><b>Nombre:</b> <span id="info-nombre">-</span></p>
-                    <p style="margin:0; font-size:14px;"><b>Cargo:</b> <span id="info-cargo">-</span></p>
-                    <p style="margin:0; font-size:14px;"><b>Ubicación:</b> <span id="info-ubicacion">-</span></p>
-                </div>
-                <div class="input-group" id="grupo-nombre" style="display:none;"><label>Nombre Completo (No está en padrón):</label><input type="text" id="voto-nombre" placeholder="Nombre del votante"></div>
-                <div class="input-group" id="grupo-commit" style="display:none; background:#fff3cd; padding:10px; border-radius:5px; border:1px solid #ffeeba;">
-                    <label style="color:#856404;">⚠️ Novedad Detectada</label>
-                    <p style="font-size:12px; color:#856404; margin-bottom:5px;">La cédula no está en el padrón. Escriba el motivo:</p>
-                    <input type="text" id="voto-commit" placeholder="Justificación" style="width:100%; padding:5px;">
-                </div>
-                <div class="input-group"><label>Foto (Opcional):</label><input type="file" id="voto-foto" accept="image/*" style="border: 1px solid #ccc; padding: 5px; width: 100%; border-radius: 5px;"></div>
-                <button class="btn-primary" onclick="guardarVotoReal()" style="margin-top:15px;">Guardar Voto</button>
-                <button onclick="cerrarModal('modal-carga')" style="width:100%; margin-top:10px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cancelar</button>
-            </div>
-        </div>`;
+    let modalHTML = `<div id="modal-carga" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;"><div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:400px;"><h3 style="margin-bottom:15px; color:#0033A0;">Registrar Voto</h3><div class="input-group"><label>Cédula del Votante:</label><input type="text" id="voto-cedula" placeholder="Ej: 14551754" onblur="buscarEnPadron()"></div><div id="info-padron" style="display:none; background:#e8f4f8; padding:10px; border-radius:5px; margin-bottom:15px; border-left:4px solid #0033A0;"><p style="margin:0; font-size:14px;"><b>Nombre:</b> <span id="info-nombre">-</span></p><p style="margin:0; font-size:14px;"><b>Cargo:</b> <span id="info-cargo">-</span></p><p style="margin:0; font-size:14px;"><b>Ubicación:</b> <span id="info-ubicacion">-</span></p></div><div class="input-group" id="grupo-nombre" style="display:none;"><label>Nombre Completo (No está en padrón):</label><input type="text" id="voto-nombre" placeholder="Nombre del votante"></div><div class="input-group" id="grupo-commit" style="display:none; background:#fff3cd; padding:10px; border-radius:5px; border:1px solid #ffeeba;"><label style="color:#856404;">⚠️ Novedad Detectada</label><p style="font-size:12px; color:#856404; margin-bottom:5px;">La cédula no está en el padrón. Escriba el motivo:</p><input type="text" id="voto-commit" placeholder="Justificación" style="width:100%; padding:5px;"></div><div class="input-group"><label>Foto (Opcional):</label><input type="file" id="voto-foto" accept="image/*" style="border:1px solid #ccc; padding:5px; width:100%; border-radius:5px;"></div><button class="btn-primary" onclick="guardarVotoReal()" style="margin-top:15px;">Guardar Voto</button><button onclick="cerrarModal('modal-carga')" style="width:100%; margin-top:10px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cancelar</button></div></div>`;
     document.body.insertAdjacentHTML('beforeend', modalHTML);
 }
 
 function abrirModalNovedades() {
-    let modalHTML = `
-        <div id="modal-novedades" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center; z-index:1000;">
-            <div style="background:white; padding:20px; border-radius:10px; width:95%; max-width:800px; max-height: 90vh; overflow-y: auto;">
-                <h3 style="margin-bottom:15px; color:#dc3545;">Gestión de Novedades</h3>
-                <table style="width:100%; border-collapse: collapse; font-size:12px;" id="tabla-novedades">
-                    <thead><tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">Cédula</th><th style="padding:5px; border:1px solid #ddd;">Nombre</th><th style="padding:5px; border:1px solid #ddd;">Reportado Por</th><th style="padding:5px; border:1px solid #ddd;">Commit</th><th style="padding:5px; border:1px solid #ddd;">Acciones</th></tr></thead>
-                    <tbody id="tbody-novedades"><tr><td colspan="5" style="text-align:center; padding:10px;">Cargando...</td></tr></tbody>
-                </table>
-                <button onclick="cerrarModal('modal-novedades')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button>
-            </div>
-        </div>`;
+    let modalHTML = `<div id="modal-novedades" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center; z-index:1000;"><div style="background:white; padding:20px; border-radius:10px; width:95%; max-width:800px; max-height:90vh; overflow-y:auto;"><h3 style="margin-bottom:15px; color:#dc3545;">Gestión de Novedades</h3><table style="width:100%; border-collapse:collapse; font-size:12px;" id="tabla-novedades"><thead><tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">Cédula</th><th style="padding:5px; border:1px solid #ddd;">Nombre</th><th style="padding:5px; border:1px solid #ddd;">Reportado Por</th><th style="padding:5px; border:1px solid #ddd;">Commit</th><th style="padding:5px; border:1px solid #ddd;">Acciones</th></tr></thead><tbody id="tbody-novedades"><tr><td colspan="5" style="text-align:center; padding:10px;">Cargando...</td></tr></tbody></table><button onclick="cerrarModal('modal-novedades')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button></div></div>`;
     document.body.insertAdjacentHTML('beforeend', modalHTML);
     cargarNovedades();
 }
