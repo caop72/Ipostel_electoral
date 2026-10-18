@@ -65,9 +65,10 @@ async function handleChangePass(event) {
     const newPass = document.getElementById('new-pass').value;
     if(newPass.length !== 4) { alert('La clave debe ser de 4 dígitos.'); return; }
 
+    const correo = sessionStorage.getItem('temp_correo');
     let bodyData = new URLSearchParams();
     bodyData.append('accion', 'cambiarClave');
-    bodyData.append('correo', sessionStorage.getItem('temp_correo'));
+    bodyData.append('correo', correo);
     bodyData.append('nuevaClave', newPass);
 
     try {
@@ -75,13 +76,34 @@ async function handleChangePass(event) {
         const result = await res.json();
         
         if (result.ok) {
-            alert('Clave actualizada. Ya puede iniciar sesión.');
-            showScreen('login-screen');
+            alert('Clave actualizada. Iniciando sesión...');
+            // Hacer login automático
+            let loginData = new URLSearchParams();
+            loginData.append('accion', 'login');
+            loginData.append('tipo', 'director');
+            loginData.append('correo', correo);
+            loginData.append('clave', newPass);
+            loginData.append('rol', 'CAPITAL'); // Asumimos Capital para el login automático
+
+            const loginRes = await fetch(API_URL, { method: 'POST', body: loginData });
+            const loginResult = await loginRes.json();
+            
+            if (loginResult.ok) {
+                authToken = loginResult.token;
+                currentUser = loginResult.usuario;
+                document.getElementById('user-name-display').textContent = `${currentUser.nombre} (${currentUser.rol})`;
+                showScreen('dashboard-screen');
+                updateDashboardView();
+            } else {
+                alert('Cambio exitoso. Por favor inicie sesión manualmente.');
+                showScreen('login-screen');
+            }
         } else {
             alert(result.error);
         }
     } catch (error) {
         alert('Error al cambiar la clave.');
+        console.error(error);
     }
 }
 
