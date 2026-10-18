@@ -328,14 +328,16 @@ function updateDashboardView() {
                 <button class="btn-primary" style="width:auto; padding:15px 30px; background:#0033A0;" onclick="abrirModalCargaLote()">Carga por Lotes</button>
             </div>
         `;
-    } else {
-        contentDiv.innerHTML = `
-            <h3 style="margin-bottom:15px; color:#0033A0; text-align:center;">Panel de ${currentUser.rol}</h3>
-            <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
-                <button class="btn-primary" style="width:auto; padding:15px 30px; background:#dc3545;" onclick="abrirModalNovedades()">Gestionar Novedades</button>
-            </div>
-        `;
-    }
+} else {
+    contentDiv.innerHTML = `
+        <h3 style="margin-bottom:15px; color:#0033A0; text-align:center;">Panel de ${currentUser.rol}</h3>
+        <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+            <button class="btn-primary" style="width:auto; padding:15px 30px; background:#dc3545;" onclick="abrirModalNovedades()">Gestionar Novedades</button>
+            <button class="btn-primary" style="width:auto; padding:15px 30px;" onclick="abrirModalCargaVoto()">Cargar Voto</button>
+            <button class="btn-primary" style="width:auto; padding:15px 30px; background:#0033A0;" onclick="abrirModalCargaLote()">Carga por Lotes</button>
+        </div>
+    `;
+}
 }
 
 // --- MODAL DE CARGA INDIVIDUAL ---
