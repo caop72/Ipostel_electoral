@@ -15,18 +15,20 @@ function switchTab(tabName) {
     const formId = tabName === 'altos-cargos' ? 'form-altos' : (tabName === 'directores' ? 'form-directores' : 'form-jefes-opt');
     document.getElementById(formId).classList.add('active');
     
-    // Si es la pestaña de Jefes de OPT, llenamos el desplegable
     if (tabName === 'jefes-opt') {
         cargarOpcionesOPT();
     }
 }
 
-// Cargar las OPTs dinámicamente desde el backend
 function cargarOpcionesOPT() {
     const select = document.getElementById('opt-seleccion');
-    if (select.options.length > 1) return; // Si ya está cargado, no hacemos nada
+    if (select.options.length > 1) return;
 
-    fetch(API_URL, { method: 'POST', body: new URLSearchParams({ accion: 'obtenerOPTs' }) })
+    fetch(API_URL, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion: 'obtenerOPTs' }) 
+    })
     .then(res => res.json())
     .then(data => {
         if(data.ok) {
@@ -37,7 +39,7 @@ function cargarOpcionesOPT() {
                 select.appendChild(option);
             });
         }
-    });
+    }).catch(e => console.log("Error cargando OPTs:", e));
 }
 
 // --- LOGIN ---
@@ -60,7 +62,11 @@ function handleLogin(event, tipo) {
         if(!payload.rol) { alert('Seleccione su OPT.'); return; }
     }
 
-    fetch(API_URL, { method: 'POST', body: new URLSearchParams(payload) })
+    fetch(API_URL, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload) 
+    })
     .then(res => res.json())
     .then(data => {
         if(data.ok && data.requiereCambio) {
@@ -85,13 +91,21 @@ function handleChangePass(event) {
     
     if(newPass.length === 4 && !isNaN(newPass)) {
         const payload = { accion: 'cambiarClave', correo: currentUser.correo, nuevaClave: newPass };
-        fetch(API_URL, { method: 'POST', body: new URLSearchParams(payload) })
+        fetch(API_URL, { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload) 
+        })
         .then(res => res.json())
         .then(data => {
             if(data.ok) {
                 alert('Clave guardada correctamente.');
                 let loginPayload = { accion: 'login', tipo: currentUser.rol === 'DIRECTOR' ? 'director' : (currentUser.rol === 'JEFE_OPT' ? 'opt' : 'altos'), correo: currentUser.correo, rol: currentUser.estado, clave: newPass };
-                fetch(API_URL, { method: 'POST', body: new URLSearchParams(loginPayload) })
+                fetch(API_URL, { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(loginPayload) 
+                })
                 .then(res => res.json())
                 .then(data2 => {
                     if(data2.ok) { currentToken = data2.token; currentUser = data2.usuario; loginSuccess(); }
@@ -116,7 +130,11 @@ function logout() {
 
 // --- DASHBOARD ---
 function cargarDashboard() {
-    fetch(API_URL, { method: 'POST', body: new URLSearchParams({ accion: 'obtenerDashboard', token: currentToken }) })
+    fetch(API_URL, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion: 'obtenerDashboard', token: currentToken }) 
+    })
     .then(res => res.json())
     .then(data => {
         if(data.ok) {
@@ -135,12 +153,8 @@ function updateDashboardView() {
             <h3 style="margin-bottom:15px; color:#0033A0; text-align:center;">Panel de Director</h3>
             <p style="margin-bottom:20px; font-size:14px; text-align:center;">Gestión para: <b>${currentUser.estado || 'Nacional'}</b></p>
             <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
-                <button class="btn-primary" style="width:auto; padding:15px 30px;" onclick="abrirModalCargaVoto()">
-                    <i class="fa-solid fa-check-circle"></i> Cargar Voto
-                </button>
-                <button class="btn-primary" style="width:auto; padding:15px 30px; background:#0033A0;" onclick="abrirModalClaves()">
-                    <i class="fa-solid fa-key"></i> Ver Claves de OPT
-                </button>
+                <button class="btn-primary" style="width:auto; padding:15px 30px;" onclick="abrirModalCargaVoto()">Cargar Voto</button>
+                <button class="btn-primary" style="width:auto; padding:15px 30px; background:#0033A0;" onclick="abrirModalClaves()">Ver Claves de OPT</button>
             </div>
         `;
     } else if (currentUser.rol === 'JEFE_OPT') {
@@ -148,24 +162,20 @@ function updateDashboardView() {
             <h3 style="margin-bottom:15px; color:#0033A0; text-align:center;">Panel de Jefe de OPT</h3>
             <p style="margin-bottom:20px; font-size:14px; text-align:center;">Gestión para: <b>${currentUser.estado}</b></p>
             <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
-                <button class="btn-primary" style="width:auto; padding:15px 30px;" onclick="abrirModalCargaVoto()">
-                    <i class="fa-solid fa-check-circle"></i> Cargar Voto
-                </button>
+                <button class="btn-primary" style="width:auto; padding:15px 30px;" onclick="abrirModalCargaVoto()">Cargar Voto</button>
             </div>
         `;
     } else {
         contentDiv.innerHTML = `
             <h3 style="margin-bottom:15px; color:#0033A0; text-align:center;">Panel de ${currentUser.rol}</h3>
             <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
-                <button class="btn-primary" style="width:auto; padding:15px 30px; background:#dc3545;" onclick="abrirModalNovedades()">
-                    <i class="fa-solid fa-exclamation-triangle"></i> Gestionar Novedades
-                </button>
+                <button class="btn-primary" style="width:auto; padding:15px 30px; background:#dc3545;" onclick="abrirModalNovedades()">Gestionar Novedades</button>
             </div>
         `;
     }
 }
 
-// --- MODAL DE CARGA (Directores y Jefes de OPT) ---
+// --- MODAL DE CARGA ---
 function abrirModalCargaVoto() {
     let modalHTML = `
         <div id="modal-carga" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
@@ -201,7 +211,7 @@ function abrirModalCargaVoto() {
     document.body.insertAdjacentHTML('beforeend', modalHTML);
 }
 
-// --- MODAL DE NOVEDADES (Observatorio) ---
+// --- MODAL DE NOVEDADES ---
 function abrirModalNovedades() {
     let modalHTML = `
         <div id="modal-novedades" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center; z-index:1000;">
@@ -217,9 +227,7 @@ function abrirModalNovedades() {
                             <th style="padding:5px; border:1px solid #ddd;">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody id="tbody-novedades">
-                        <tr><td colspan="5" style="text-align:center; padding:10px;">Cargando...</td></tr>
-                    </tbody>
+                    <tbody id="tbody-novedades"><tr><td colspan="5" style="text-align:center; padding:10px;">Cargando...</td></tr></tbody>
                 </table>
                 <button onclick="cerrarModal('modal-novedades')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button>
             </div>
@@ -230,7 +238,11 @@ function abrirModalNovedades() {
 }
 
 function cargarNovedades() {
-    fetch(API_URL, { method: 'POST', body: new URLSearchParams({ accion: 'obtenerNovedades', token: currentToken }) })
+    fetch(API_URL, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion: 'obtenerNovedades', token: currentToken }) 
+    })
     .then(res => res.json())
     .then(data => {
         const tbody = document.getElementById('tbody-novedades');
@@ -258,7 +270,11 @@ function cargarNovedades() {
 
 function gestionarNovedad(fila, accion) {
     if(!confirm(`¿Está seguro de ${accion} esta novedad?`)) return;
-    fetch(API_URL, { method: 'POST', body: new URLSearchParams({ accion: 'gestionarNovedad', token: currentToken, fila: fila, accion: accion }) })
+    fetch(API_URL, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion: 'gestionarNovedad', token: currentToken, fila: fila, accion: accion }) 
+    })
     .then(res => res.json())
     .then(data => {
         if(data.ok) { alert(data.mensaje); cargarNovedades(); cargarDashboard(); }
@@ -270,7 +286,11 @@ function gestionarNovedad(fila, accion) {
 function buscarEnPadron() {
     const cedula = document.getElementById('voto-cedula').value;
     if(!cedula || cedula.length < 5) return;
-    fetch(API_URL, { method: 'POST', body: new URLSearchParams({ accion: 'consultarPadron', token: currentToken, cedula: cedula }) })
+    fetch(API_URL, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion: 'consultarPadron', token: currentToken, cedula: cedula }) 
+    })
     .then(res => res.json())
     .then(data => {
         const infoDiv = document.getElementById('info-padron');
@@ -300,7 +320,11 @@ function guardarVotoReal() {
 
     const enviarDatos = (fotoUrl) => {
         const payload = { accion: 'cargarVoto', token: currentToken, cedula_votante: cedula, nombre_votante: nombre, commit_novedad: commit, foto_url: fotoUrl };
-        fetch(API_URL, { method: 'POST', body: new URLSearchParams(payload) })
+        fetch(API_URL, { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload) 
+        })
         .then(res => res.json())
         .then(data => {
             if(data.ok) { alert("✅ " + data.mensaje); cerrarModal('modal-carga'); cargarDashboard(); }
@@ -319,7 +343,11 @@ function guardarVotoReal() {
         const reader = new FileReader();
         reader.onload = function(e) {
             const base64Data = e.target.result.split(',')[1];
-            fetch(API_URL, { method: 'POST', body: new URLSearchParams({ accion: 'subirFoto', token: currentToken, base64: base64Data, nombre: 'voto_' + cedula + '.jpg' }) })
+            fetch(API_URL, { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ accion: 'subirFoto', token: currentToken, base64: base64Data, nombre: 'voto_' + cedula + '.jpg' }) 
+            })
             .then(res => res.json())
             .then(dataFoto => { if(dataFoto.ok) enviarDatos(dataFoto.url); else { alert("Error al subir foto: " + dataFoto.error); enviarDatos(''); } });
         };
@@ -347,21 +375,4 @@ function abrirModalClaves() {
 function cerrarModal(idModal) {
     const modal = document.getElementById(idModal);
     if(modal) modal.remove();
-}
-function obtenerOPTs_(params, usuario) {
-  const hojaPadron = getHoja_('PADRON');
-  if (!hojaPadron) return respuestaJSON_({ ok: false, error: 'Hoja de padrón no encontrada.' });
-  
-  const data = hojaPadron.getDataRange().getValues();
-  const optsUnicas = new Set();
-  
-  // Columna E (índice 4) es la OPT según tu padrón
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][4]) {
-      optsUnicas.add(data[i][4]);
-    }
-  }
-  
-  // Convertimos el Set a un array ordenado
-  return respuestaJSON_({ ok: true, data: Array.from(optsUnicas).sort() });
 }
