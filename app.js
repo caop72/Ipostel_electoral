@@ -69,40 +69,78 @@ function cargarPorVerificar() {
 }
 
 function dibujarGraficos(data) {
+    console.log("Datos recibidos para gráficos:", data); // <-- ESTO NOS DIRÁ QUÉ LLEGA
+
     // --- Gráfico 1: Participación por Estado ---
     const estados = Object.keys(data.padronPorEstado || {}).sort();
-    if (estados.length > 0) {
-        const participacionData = estados.map(e => {
-            const padron = data.padronPorEstado[e] || 0;
-            const votos = data.votosPorEstado[e] || 0;
-            return padron > 0 ? ((votos / padron) * 100).toFixed(1) : 0;
+    const participacionData = estados.map(e => {
+        const padron = data.padronPorEstado[e] || 0;
+        const votos = data.votosPorEstado[e] || 0;
+        return padron > 0 ? ((votos / padron) * 100).toFixed(1) : 0;
+    });
+    
+    if (chartEstados) chartEstados.destroy();
+    const canvas1 = document.getElementById('chartEstados');
+    if (canvas1) {
+        const ctx1 = canvas1.getContext('2d');
+        chartEstados = new Chart(ctx1, {
+            type: 'bar',
+            data: { 
+                labels: estados.length > 0 ? estados : ['Sin datos'], 
+                datasets: [{
+                    label: '% Participación',
+                    data: participacionData.length > 0 ? participacionData : [0],
+                    backgroundColor: 'rgba(200, 16, 46, 0.8)'
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
         });
-        
-        if (chartEstados) chartEstados.destroy();
-        const canvas1 = document.getElementById('chartEstados');
-        if (canvas1) {
-            const ctx1 = canvas1.getContext('2d');
-            chartEstados = new Chart(ctx1, {
-                type: 'bar',
-                data: { 
-                    labels: estados, 
-                    datasets: [{
-                        label: '% Participación',
-                        data: participacionData,
-                        backgroundColor: 'rgba(200, 16, 46, 0.8)'
-                    }]
-                },
-                options: { 
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: { 
-                        y: { beginAtZero: true, max: 100, ticks: { callback: function(value) { return value + '%'; } } },
-                        x: { ticks: { maxRotation: 90, minRotation: 45 } }
-                    } 
-                }
-            });
-        }
     }
+    
+    // --- Gráfico 2: Avance por Dirección ---
+    const direcciones = Object.keys(data.padronPorDireccion || {}).sort();
+    const padronDirData = direcciones.map(d => data.padronPorDireccion[d] || 0);
+    const votosDirData = direcciones.map(d => data.votosPorDireccion[d] || 0);
+    
+    if (chartDirecciones) chartDirecciones.destroy();
+    const canvas2 = document.getElementById('chartDirecciones');
+    if (canvas2) {
+        const ctx2 = canvas2.getContext('2d');
+        chartDirecciones = new Chart(ctx2, {
+            type: 'bar',
+            data: { 
+                labels: direcciones.length > 0 ? direcciones : ['Sin datos'], 
+                datasets: [
+                    { label: 'Padrón', data: padronDirData.length > 0 ? padronDirData : [0], backgroundColor: 'rgba(0, 51, 160, 0.5)' },
+                    { label: 'Votos', data: votosDirData.length > 0 ? votosDirData : [0], backgroundColor: 'rgba(200, 16, 46, 0.8)' }
+                ]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+    }
+    
+    // --- Gráfico 3: Curva por Hora ---
+    const horas = Object.keys(data.votosPorHora || {}).sort();
+    const votosHora = horas.map(h => data.votosPorHora[h]);
+    
+    if (chartHoras) chartHoras.destroy();
+    const canvas3 = document.getElementById('chartHoras');
+    if (canvas3) {
+        const ctx3 = canvas3.getContext('2d');
+        chartHoras = new Chart(ctx3, {
+            type: 'line',
+            data: { 
+                labels: horas.length > 0 ? horas : ['Sin datos'], 
+                datasets: [{
+                    label: 'Votos por Hora', data: votosHora.length > 0 ? votosHora : [0],
+                    borderColor: 'rgba(200, 16, 46, 1)', backgroundColor: 'rgba(200, 16, 46, 0.2)',
+                    fill: true, tension: 0.4
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+    }
+}
     
     // --- Gráfico 2: Avance por Dirección ---
     const direcciones = Object.keys(data.padronPorDireccion || {}).sort();
