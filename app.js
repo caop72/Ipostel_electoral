@@ -24,13 +24,10 @@ function cargarOpcionesOPT() {
     const select = document.getElementById('opt-seleccion');
     if (select.options.length > 1) return;
 
-    // Usamos URLSearchParams que es el estándar que Google lee perfectamente
-    const payload = new URLSearchParams({ accion: 'obtenerOPTs' });
+    const formData = new FormData();
+    formData.append('accion', 'obtenerOPTs');
     
-    fetch(API_URL, { 
-        method: 'POST', 
-        body: payload
-    })
+    fetch(API_URL, { method: 'POST', body: formData })
     .then(res => res.json())
     .then(data => {
         if(data.ok) {
@@ -41,38 +38,34 @@ function cargarOpcionesOPT() {
                 select.appendChild(option);
             });
         }
-    }).catch(e => console.log("Error cargando OPTs:", e));
+    }).catch(e => console.log("Error OPTs:", e));
 }
 
 // --- LOGIN ---
 function handleLogin(event, tipo) {
     event.preventDefault();
-    let payload = new URLSearchParams({ accion: 'login', tipo: tipo });
+    const formData = new FormData();
+    formData.append('accion', 'login');
+    formData.append('tipo', tipo);
 
     if(tipo === 'altos') {
-        payload.append('rol', document.getElementById('rol-alto').value);
-        payload.append('clave', document.getElementById('pass-alto').value);
-        if(!payload.get('rol')) { alert('Por favor seleccione un rol.'); return; }
+        formData.append('rol', document.getElementById('rol-alto').value);
+        formData.append('clave', document.getElementById('pass-alto').value);
     } else if (tipo === 'director') {
-        payload.append('rol', document.getElementById('rol-director').value);
-        payload.append('correo', document.getElementById('correo-director').value);
-        payload.append('clave', document.getElementById('pass-director').value);
-        if(!payload.get('rol') || !payload.get('correo')) { alert('Seleccione estado y correo.'); return; }
+        formData.append('rol', document.getElementById('rol-director').value);
+        formData.append('correo', document.getElementById('correo-director').value);
+        formData.append('clave', document.getElementById('pass-director').value);
     } else if (tipo === 'opt') {
-        payload.append('rol', document.getElementById('opt-seleccion').value);
-        payload.append('clave', document.getElementById('pass-opt').value);
-        if(!payload.get('rol')) { alert('Seleccione su OPT.'); return; }
+        formData.append('rol', document.getElementById('opt-seleccion').value);
+        formData.append('clave', document.getElementById('pass-opt').value);
     }
 
-    fetch(API_URL, { 
-        method: 'POST', 
-        body: payload 
-    })
+    fetch(API_URL, { method: 'POST', body: formData })
     .then(res => res.json())
     .then(data => {
         if(data.ok && data.requiereCambio) {
-            currentUser = { rol: payload.get('rol'), nombre: payload.get('correo') || payload.get('rol'), estado: payload.get('rol') };
-            currentUser.correo = data.correo || payload.get('correo');
+            currentUser = { rol: formData.get('rol'), nombre: formData.get('correo') || formData.get('rol'), estado: formData.get('rol') };
+            currentUser.correo = data.correo || formData.get('correo');
             showScreen('change-pass-screen');
         } else if (data.ok) {
             currentToken = data.token;
@@ -91,14 +84,24 @@ function handleChangePass(event) {
     const newPass = document.getElementById('new-pass').value;
     
     if(newPass.length === 4 && !isNaN(newPass)) {
-        const payload = new URLSearchParams({ accion: 'cambiarClave', correo: currentUser.correo, nuevaClave: newPass });
-        fetch(API_URL, { method: 'POST', body: payload })
+        const formData = new FormData();
+        formData.append('accion', 'cambiarClave');
+        formData.append('correo', currentUser.correo);
+        formData.append('nuevaClave', newPass);
+        
+        fetch(API_URL, { method: 'POST', body: formData })
         .then(res => res.json())
         .then(data => {
             if(data.ok) {
                 alert('Clave guardada correctamente.');
-                let loginPayload = new URLSearchParams({ accion: 'login', tipo: currentUser.rol === 'DIRECTOR' ? 'director' : (currentUser.rol === 'JEFE_OPT' ? 'opt' : 'altos'), correo: currentUser.correo, rol: currentUser.estado, clave: newPass });
-                fetch(API_URL, { method: 'POST', body: loginPayload })
+                const loginData = new FormData();
+                loginData.append('accion', 'login');
+                loginData.append('tipo', currentUser.rol === 'DIRECTOR' ? 'director' : (currentUser.rol === 'JEFE_OPT' ? 'opt' : 'altos'));
+                loginData.append('correo', currentUser.correo);
+                loginData.append('rol', currentUser.estado);
+                loginData.append('clave', newPass);
+                
+                fetch(API_URL, { method: 'POST', body: loginData })
                 .then(res => res.json())
                 .then(data2 => {
                     if(data2.ok) { currentToken = data2.token; currentUser = data2.usuario; loginSuccess(); }
@@ -123,8 +126,11 @@ function logout() {
 
 // --- DASHBOARD ---
 function cargarDashboard() {
-    const payload = new URLSearchParams({ accion: 'obtenerDashboard', token: currentToken });
-    fetch(API_URL, { method: 'POST', body: payload })
+    const formData = new FormData();
+    formData.append('accion', 'obtenerDashboard');
+    formData.append('token', currentToken);
+    
+    fetch(API_URL, { method: 'POST', body: formData })
     .then(res => res.json())
     .then(data => {
         if(data.ok) {
@@ -165,7 +171,7 @@ function updateDashboardView() {
     }
 }
 
-// --- MODAL DE CARGA ---
+// --- MODALES ---
 function abrirModalCargaVoto() {
     let modalHTML = `
         <div id="modal-carga" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
@@ -201,7 +207,6 @@ function abrirModalCargaVoto() {
     document.body.insertAdjacentHTML('beforeend', modalHTML);
 }
 
-// --- MODAL DE NOVEDADES ---
 function abrirModalNovedades() {
     let modalHTML = `
         <div id="modal-novedades" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center; z-index:1000;">
@@ -228,8 +233,11 @@ function abrirModalNovedades() {
 }
 
 function cargarNovedades() {
-    const payload = new URLSearchParams({ accion: 'obtenerNovedades', token: currentToken });
-    fetch(API_URL, { method: 'POST', body: payload })
+    const formData = new FormData();
+    formData.append('accion', 'obtenerNovedades');
+    formData.append('token', currentToken);
+    
+    fetch(API_URL, { method: 'POST', body: formData })
     .then(res => res.json())
     .then(data => {
         const tbody = document.getElementById('tbody-novedades');
@@ -257,8 +265,13 @@ function cargarNovedades() {
 
 function gestionarNovedad(fila, accion) {
     if(!confirm(`¿Está seguro de ${accion} esta novedad?`)) return;
-    const payload = new URLSearchParams({ accion: 'gestionarNovedad', token: currentToken, fila: fila, accion: accion });
-    fetch(API_URL, { method: 'POST', body: payload })
+    const formData = new FormData();
+    formData.append('accion', 'gestionarNovedad');
+    formData.append('token', currentToken);
+    formData.append('fila', fila);
+    formData.append('accionNovedad', accion); // Renombrado para no chocar con 'accion'
+    
+    fetch(API_URL, { method: 'POST', body: formData })
     .then(res => res.json())
     .then(data => {
         if(data.ok) { alert(data.mensaje); cargarNovedades(); cargarDashboard(); }
@@ -266,12 +279,15 @@ function gestionarNovedad(fila, accion) {
     });
 }
 
-// --- FUNCIONES DE APOYO ---
 function buscarEnPadron() {
     const cedula = document.getElementById('voto-cedula').value;
     if(!cedula || cedula.length < 5) return;
-    const payload = new URLSearchParams({ accion: 'consultarPadron', token: currentToken, cedula: cedula });
-    fetch(API_URL, { method: 'POST', body: payload })
+    const formData = new FormData();
+    formData.append('accion', 'consultarPadron');
+    formData.append('token', currentToken);
+    formData.append('cedula', cedula);
+    
+    fetch(API_URL, { method: 'POST', body: formData })
     .then(res => res.json())
     .then(data => {
         const infoDiv = document.getElementById('info-padron');
@@ -300,8 +316,15 @@ function guardarVotoReal() {
     if(!cedula) { alert("Debe ingresar una cédula."); return; }
 
     const enviarDatos = (fotoUrl) => {
-        const payload = new URLSearchParams({ accion: 'cargarVoto', token: currentToken, cedula_votante: cedula, nombre_votante: nombre, commit_novedad: commit, foto_url: fotoUrl });
-        fetch(API_URL, { method: 'POST', body: payload })
+        const formData = new FormData();
+        formData.append('accion', 'cargarVoto');
+        formData.append('token', currentToken);
+        formData.append('cedula_votante', cedula);
+        formData.append('nombre_votante', nombre);
+        formData.append('commit_novedad', commit);
+        formData.append('foto_url', fotoUrl);
+        
+        fetch(API_URL, { method: 'POST', body: formData })
         .then(res => res.json())
         .then(data => {
             if(data.ok) { alert("✅ " + data.mensaje); cerrarModal('modal-carga'); cargarDashboard(); }
@@ -320,8 +343,13 @@ function guardarVotoReal() {
         const reader = new FileReader();
         reader.onload = function(e) {
             const base64Data = e.target.result.split(',')[1];
-            const payloadFoto = new URLSearchParams({ accion: 'subirFoto', token: currentToken, base64: base64Data, nombre: 'voto_' + cedula + '.jpg' });
-            fetch(API_URL, { method: 'POST', body: payloadFoto })
+            const formData = new FormData();
+            formData.append('accion', 'subirFoto');
+            formData.append('token', currentToken);
+            formData.append('base64', base64Data);
+            formData.append('nombre', 'voto_' + cedula + '.jpg');
+            
+            fetch(API_URL, { method: 'POST', body: formData })
             .then(res => res.json())
             .then(dataFoto => { if(dataFoto.ok) enviarDatos(dataFoto.url); else { alert("Error al subir foto: " + dataFoto.error); enviarDatos(''); } });
         };
