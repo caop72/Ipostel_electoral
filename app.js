@@ -34,7 +34,7 @@ function switchTab(tabName) {
     document.getElementById(formId).classList.add('active');
 
     if (tabName === 'gerentes') cargarEstadosParaGerente();
-    if (tabName === 'jefes-opt') cargarEstadosParaOPT();
+    if (tabName === 'jefes-opt') cargarEstadosParaOPT(); // <-- ESTA LÍNEA FALTABA O NO SE EJECUTABA
 }
 
 // --- CARGA DE DESPLEGABLES ---
