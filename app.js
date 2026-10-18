@@ -24,10 +24,12 @@ function cargarOpcionesOPT() {
     const select = document.getElementById('opt-seleccion');
     if (select.options.length > 1) return;
 
+    // Usamos URLSearchParams que es el estándar que Google lee perfectamente
+    const payload = new URLSearchParams({ accion: 'obtenerOPTs' });
+    
     fetch(API_URL, { 
         method: 'POST', 
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accion: 'obtenerOPTs' }) 
+        body: payload
     })
     .then(res => res.json())
     .then(data => {
@@ -45,33 +47,32 @@ function cargarOpcionesOPT() {
 // --- LOGIN ---
 function handleLogin(event, tipo) {
     event.preventDefault();
-    let payload = { accion: 'login', tipo: tipo };
+    let payload = new URLSearchParams({ accion: 'login', tipo: tipo });
 
     if(tipo === 'altos') {
-        payload.rol = document.getElementById('rol-alto').value;
-        payload.clave = document.getElementById('pass-alto').value;
-        if(!payload.rol) { alert('Por favor seleccione un rol.'); return; }
+        payload.append('rol', document.getElementById('rol-alto').value);
+        payload.append('clave', document.getElementById('pass-alto').value);
+        if(!payload.get('rol')) { alert('Por favor seleccione un rol.'); return; }
     } else if (tipo === 'director') {
-        payload.rol = document.getElementById('rol-director').value;
-        payload.correo = document.getElementById('correo-director').value;
-        payload.clave = document.getElementById('pass-director').value;
-        if(!payload.rol || !payload.correo) { alert('Seleccione estado y correo.'); return; }
+        payload.append('rol', document.getElementById('rol-director').value);
+        payload.append('correo', document.getElementById('correo-director').value);
+        payload.append('clave', document.getElementById('pass-director').value);
+        if(!payload.get('rol') || !payload.get('correo')) { alert('Seleccione estado y correo.'); return; }
     } else if (tipo === 'opt') {
-        payload.rol = document.getElementById('opt-seleccion').value;
-        payload.clave = document.getElementById('pass-opt').value;
-        if(!payload.rol) { alert('Seleccione su OPT.'); return; }
+        payload.append('rol', document.getElementById('opt-seleccion').value);
+        payload.append('clave', document.getElementById('pass-opt').value);
+        if(!payload.get('rol')) { alert('Seleccione su OPT.'); return; }
     }
 
     fetch(API_URL, { 
         method: 'POST', 
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload) 
+        body: payload 
     })
     .then(res => res.json())
     .then(data => {
         if(data.ok && data.requiereCambio) {
-            currentUser = { rol: payload.rol, nombre: payload.correo || payload.rol, estado: payload.rol };
-            currentUser.correo = data.correo || payload.correo;
+            currentUser = { rol: payload.get('rol'), nombre: payload.get('correo') || payload.get('rol'), estado: payload.get('rol') };
+            currentUser.correo = data.correo || payload.get('correo');
             showScreen('change-pass-screen');
         } else if (data.ok) {
             currentToken = data.token;
@@ -90,22 +91,14 @@ function handleChangePass(event) {
     const newPass = document.getElementById('new-pass').value;
     
     if(newPass.length === 4 && !isNaN(newPass)) {
-        const payload = { accion: 'cambiarClave', correo: currentUser.correo, nuevaClave: newPass };
-        fetch(API_URL, { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload) 
-        })
+        const payload = new URLSearchParams({ accion: 'cambiarClave', correo: currentUser.correo, nuevaClave: newPass });
+        fetch(API_URL, { method: 'POST', body: payload })
         .then(res => res.json())
         .then(data => {
             if(data.ok) {
                 alert('Clave guardada correctamente.');
-                let loginPayload = { accion: 'login', tipo: currentUser.rol === 'DIRECTOR' ? 'director' : (currentUser.rol === 'JEFE_OPT' ? 'opt' : 'altos'), correo: currentUser.correo, rol: currentUser.estado, clave: newPass };
-                fetch(API_URL, { 
-                    method: 'POST', 
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(loginPayload) 
-                })
+                let loginPayload = new URLSearchParams({ accion: 'login', tipo: currentUser.rol === 'DIRECTOR' ? 'director' : (currentUser.rol === 'JEFE_OPT' ? 'opt' : 'altos'), correo: currentUser.correo, rol: currentUser.estado, clave: newPass });
+                fetch(API_URL, { method: 'POST', body: loginPayload })
                 .then(res => res.json())
                 .then(data2 => {
                     if(data2.ok) { currentToken = data2.token; currentUser = data2.usuario; loginSuccess(); }
@@ -130,11 +123,8 @@ function logout() {
 
 // --- DASHBOARD ---
 function cargarDashboard() {
-    fetch(API_URL, { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accion: 'obtenerDashboard', token: currentToken }) 
-    })
+    const payload = new URLSearchParams({ accion: 'obtenerDashboard', token: currentToken });
+    fetch(API_URL, { method: 'POST', body: payload })
     .then(res => res.json())
     .then(data => {
         if(data.ok) {
@@ -238,11 +228,8 @@ function abrirModalNovedades() {
 }
 
 function cargarNovedades() {
-    fetch(API_URL, { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accion: 'obtenerNovedades', token: currentToken }) 
-    })
+    const payload = new URLSearchParams({ accion: 'obtenerNovedades', token: currentToken });
+    fetch(API_URL, { method: 'POST', body: payload })
     .then(res => res.json())
     .then(data => {
         const tbody = document.getElementById('tbody-novedades');
@@ -270,11 +257,8 @@ function cargarNovedades() {
 
 function gestionarNovedad(fila, accion) {
     if(!confirm(`¿Está seguro de ${accion} esta novedad?`)) return;
-    fetch(API_URL, { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accion: 'gestionarNovedad', token: currentToken, fila: fila, accion: accion }) 
-    })
+    const payload = new URLSearchParams({ accion: 'gestionarNovedad', token: currentToken, fila: fila, accion: accion });
+    fetch(API_URL, { method: 'POST', body: payload })
     .then(res => res.json())
     .then(data => {
         if(data.ok) { alert(data.mensaje); cargarNovedades(); cargarDashboard(); }
@@ -286,11 +270,8 @@ function gestionarNovedad(fila, accion) {
 function buscarEnPadron() {
     const cedula = document.getElementById('voto-cedula').value;
     if(!cedula || cedula.length < 5) return;
-    fetch(API_URL, { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accion: 'consultarPadron', token: currentToken, cedula: cedula }) 
-    })
+    const payload = new URLSearchParams({ accion: 'consultarPadron', token: currentToken, cedula: cedula });
+    fetch(API_URL, { method: 'POST', body: payload })
     .then(res => res.json())
     .then(data => {
         const infoDiv = document.getElementById('info-padron');
@@ -319,12 +300,8 @@ function guardarVotoReal() {
     if(!cedula) { alert("Debe ingresar una cédula."); return; }
 
     const enviarDatos = (fotoUrl) => {
-        const payload = { accion: 'cargarVoto', token: currentToken, cedula_votante: cedula, nombre_votante: nombre, commit_novedad: commit, foto_url: fotoUrl };
-        fetch(API_URL, { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload) 
-        })
+        const payload = new URLSearchParams({ accion: 'cargarVoto', token: currentToken, cedula_votante: cedula, nombre_votante: nombre, commit_novedad: commit, foto_url: fotoUrl });
+        fetch(API_URL, { method: 'POST', body: payload })
         .then(res => res.json())
         .then(data => {
             if(data.ok) { alert("✅ " + data.mensaje); cerrarModal('modal-carga'); cargarDashboard(); }
@@ -343,11 +320,8 @@ function guardarVotoReal() {
         const reader = new FileReader();
         reader.onload = function(e) {
             const base64Data = e.target.result.split(',')[1];
-            fetch(API_URL, { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ accion: 'subirFoto', token: currentToken, base64: base64Data, nombre: 'voto_' + cedula + '.jpg' }) 
-            })
+            const payloadFoto = new URLSearchParams({ accion: 'subirFoto', token: currentToken, base64: base64Data, nombre: 'voto_' + cedula + '.jpg' });
+            fetch(API_URL, { method: 'POST', body: payloadFoto })
             .then(res => res.json())
             .then(dataFoto => { if(dataFoto.ok) enviarDatos(dataFoto.url); else { alert("Error al subir foto: " + dataFoto.error); enviarDatos(''); } });
         };
