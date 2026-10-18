@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPOSTEL - Control Electoral 2026</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div id="app">
+        <!-- PANTALLA DE LOGIN -->
+        <div id="login-screen" class="screen active">
+            <div class="login-container">
+                <div class="logo-header">
+                    <h1><i class="fa-solid fa-envelope"></i> IPOSTEL</h1>
+                    <p>Control Electoral - Consulta Popular 2026</p>
+                </div>
+                
+                <div class="tabs">
+                    <button class="tab-btn active" onclick="switchTab('altos-cargos')">Altos Cargos</button>
+                    <button class="tab-btn" onclick="switchTab('directores')">Directores</button>
+                </div>
+
+                <!-- Formulario Altos Cargos -->
+                <form id="form-altos" class="login-form active" onsubmit="handleLogin(event, 'altos')">
+                    <div class="input-group">
+                        <label for="rol-alto">Seleccione su Rol:</label>
+                        <select id="rol-alto" required>
+                            <option value="">-- Seleccione --</option>
+                            <option value="PRESIDENCIA">Presidencia</option>
+                            <option value="DESPACHO">Despacho</option>
+                            <option value="OBSERVATORIO">Observatorio</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="pass-alto">Clave (Inicial: Ipostel):</label>
+                        <input type="password" id="pass-alto" placeholder="Ingrese su clave" required>
+                    </div>
+                    <button type="submit" class="btn-primary">Ingresar</button>
+                </form>
+
+                <!-- Formulario Directores -->
+                <form id="form-directores" class="login-form" onsubmit="handleLogin(event, 'director')">
+                    <div class="input-group">
+                        <label for="rol-director">Seleccione su Estado/Dirección:</label>
+                        <select id="rol-director" required>
+                            <option value="">-- Seleccione su asignación --</option>
+                            <option value="CAPITAL">Región Capital (GH / CNC)</option>
+                            <option value="LARA">Estado Lara (Tecnología)</option>
+                            <option value="ZULIA">Estado Zulia (Atención al Ciudadano)</option>
+                            <option value="CARABOBO_SUCRE">Carabobo y Sucre (Rel. Internacionales)</option>
+                            <option value="ARAGUA">Estado Aragua (Consultoría Jurídica)</option>
+                            <option value="TRUJILLO_FALCON">Trujillo y Falcón (Comunicacional)</option>
+                            <option value="MONAGAS_DELTA">Monagas y Delta Amacuro (Administración)</option>
+                            <option value="BOLIVAR">Estado Bolívar (Auditoría)</option>
+                            <option value="TACHIRA_MERIDA">Táchira y Mérida (Despacho)</option>
+                            <option value="BARINAS">Estado Barinas (Infraestructura)</option>
+                            <option value="COJEDES">Estado Cojedes (Gestión Operativa)</option>
+                            <option value="APURE_AMAZONAS">Apure y Amazonas (Seguridad Postal)</option>
+                            <option value="PORTUGUESA_NUEVA_ESPARTA">Portuguesa y Nueva Esparta (Planificación)</option>
+                            <option value="ANZOATEGUI">Estado Anzoátegui (Comercial)</option>
+                            <option value="GUARICO_YARACUY">Guárico y Yaracuy (Sector Postal)</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="correo-director">Correo Electrónico:</label>
+                        <input type="email" id="correo-director" placeholder="ejemplo@ipostel.gob.ve" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="pass-director">Clave (Inicial: Ipostel):</label>
+                        <input type="password" id="pass-director" placeholder="Ingrese su clave" required>
+                    </div>
+                    <button type="submit" class="btn-primary">Registrarse / Ingresar</button>
+                    <p class="hint">Su registro debe ser autorizado por el Observatorio.</p>
+                </form>
+            </div>
+        </div>
+
+        <!-- PANTALLA DE CAMBIO DE CLAVE OBLIGATORIO -->
+        <div id="change-pass-screen" class="screen">
+            <div class="login-container">
+                <h2>Actualización de Seguridad</h2>
+                <p>Por su seguridad, debe cambiar su clave inicial por una de 4 dígitos.</p>
+                <form onsubmit="handleChangePass(event)">
+                    <div class="input-group">
+                        <label for="new-pass">Nueva Clave (4 dígitos):</label>
+                        <input type="password" id="new-pass" pattern="\d{4}" maxlength="4" placeholder="Ej: 1234" required>
+                    </div>
+                    <button type="submit" class="btn-primary">Guardar y Continuar</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- PANTALLA PRINCIPAL (DASHBOARD) -->
+        <div id="dashboard-screen" class="screen">
+            <header class="app-header">
+                <div class="user-info">
+                    <i class="fa-solid fa-user-circle"></i>
+                    <span id="user-name-display">Cargando...</span>
+                </div>
+                <button onclick="logout()" class="btn-logout"><i class="fa-solid fa-sign-out-alt"></i> Salir</button>
+            </header>
+            
+            <main class="dashboard-content">
+                <div class="welcome-card">
+                    <h2>Sistema de Monitoreo Electoral</h2>
+                    <p>Bienvenido al panel de control ODP 004-2026.</p>
+                </div>
+                
+                <div class="stats-grid" id="stats-container">
+                    <!-- Aquí se inyectarán las estadísticas vía JS -->
+                    <div class="stat-card">
+                        <h3>Total Padrón</h3>
+                        <p class="stat-number">---</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Votos Registrados</h3>
+                        <p class="stat-number" style="color: var(--color-exito);">---</p>
+                    </div>
+                </div>
+
+                <!-- Espacio para el contenido dinámico según el rol -->
+                <div id="role-content">
+                    <p style="text-align: center; color: #666;">Seleccione una opción para comenzar.</p>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
