@@ -1,0 +1,203 @@
+:root {
+    --color-primario: #C8102E; /* Rojo IPOSTEL */
+    --color-secundario: #0033A0; /* Azul IPOSTEL */
+    --color-acento: #FFC000; /* Dorado */
+    --color-fondo: #f4f4f9;
+    --color-texto: #333;
+    --color-exito: #28a745;
+    --color-alerta: #dc3545;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background-color: var(--color-fondo);
+    color: var(--color-texto);
+    min-height: 100vh;
+}
+
+/* Sistema de Pantallas */
+.screen {
+    display: none;
+    min-height: 100vh;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+.screen.active {
+    display: flex;
+}
+
+/* Contenedor de Login */
+.login-container {
+    background: white;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    width: 100%;
+    max-width: 400px;
+}
+
+.logo-header {
+    text-align: center;
+    margin-bottom: 20px;
+    color: var(--color-secundario);
+}
+.logo-header h1 {
+    font-size: 28px;
+    margin-bottom: 5px;
+}
+.logo-header p {
+    font-size: 14px;
+    color: #666;
+}
+
+/* Pestañas de Login */
+.tabs {
+    display: flex;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #eee;
+}
+.tab-btn {
+    flex: 1;
+    padding: 10px;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    font-weight: bold;
+    color: #888;
+    transition: all 0.3s;
+}
+.tab-btn.active {
+    color: var(--color-primario);
+    border-bottom-color: var(--color-primario);
+}
+
+/* Formularios */
+.login-form {
+    display: none;
+}
+.login-form.active {
+    display: block;
+}
+
+.input-group {
+    margin-bottom: 15px;
+}
+.input-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 14px;
+    font-weight: 600;
+}
+.input-group input, .input-group select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 16px;
+}
+.input-group input:focus, .input-group select:focus {
+    border-color: var(--color-secundario);
+    outline: none;
+}
+
+.btn-primary {
+    width: 100%;
+    padding: 12px;
+    background-color: var(--color-primario);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+.btn-primary:hover {
+    background-color: #a00d25;
+}
+
+.hint {
+    font-size: 12px;
+    color: #888;
+    text-align: center;
+    margin-top: 10px;
+}
+
+/* Dashboard Header */
+#dashboard-screen {
+    flex-direction: column;
+    padding: 0;
+    align-items: stretch;
+    background-color: var(--color-fondo);
+}
+
+.app-header {
+    background-color: var(--color-secundario);
+    color: white;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: bold;
+}
+.btn-logout {
+    background: transparent;
+    border: 1px solid white;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.dashboard-content {
+    padding: 20px;
+    flex-grow: 1;
+}
+
+.welcome-card {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border-left: 5px solid var(--color-primario);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+/* Estadísticas */
+.stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+.stat-card {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+.stat-card h3 {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 10px;
+}
+.stat-number {
+    font-size: 28px;
+    font-weight: bold;
+    color: var(--color-secundario);
+}
