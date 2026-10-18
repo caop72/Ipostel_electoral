@@ -19,6 +19,7 @@
                     <button class="tab-btn active" onclick="switchTab('altos-cargos')">Altos Cargos</button>
                     <button class="tab-btn" onclick="switchTab('directores')">Directores</button>
                     <button class="tab-btn" onclick="switchTab('gerentes')">Gerentes</button>
+                    <button class="tab-btn" onclick="switchTab('jefes-opt')">Jefes de OPT</button>
                 </div>
 
                 <form id="form-altos" class="login-form active" onsubmit="handleLogin(event, 'altos')">
@@ -84,6 +85,20 @@
                     </div>
                     <button type="submit" class="btn-primary">Ingresar</button>
                 </form>
+
+                <form id="form-jefes-opt" class="login-form" onsubmit="handleLogin(event, 'opt')">
+                    <div class="input-group">
+                        <label>Seleccione su OPT (Sede):</label>
+                        <select id="opt-seleccion" required>
+                            <option value="">-- Seleccione su OPT --</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Clave (Proporcionada por su Gerente):</label>
+                        <input type="password" id="pass-opt" placeholder="Ingrese su clave" required>
+                    </div>
+                    <button type="submit" class="btn-primary">Ingresar</button>
+                </form>
             </div>
         </div>
 
@@ -123,6 +138,6 @@
         </div>
     </div>
 
-    <script src="app.js?v=2026"></script>
+    <script src="app.js?v=20261018-2"></script>
 </body>
 </html>
