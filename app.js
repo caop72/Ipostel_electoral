@@ -480,3 +480,16 @@ function cerrarModal(idModal) {
     const modal = document.getElementById(idModal);
     if (modal) modal.remove();
 }
+
+// --- FUNCIONES DE FILTRO ---
+function aplicarFiltros() {
+    const estado = document.getElementById('filtro-estado').value;
+    const direccion = document.getElementById('filtro-direccion').value;
+    cargarDashboard({ estado: estado, direccion: direccion });
+}
+
+function limpiarFiltros() {
+    document.getElementById('filtro-estado').value = '';
+    document.getElementById('filtro-direccion').value = '';
+    cargarDashboard({});
+}
