@@ -2,6 +2,7 @@ const API_URL = 'https://blue-river-9145.ipostel-monitor.workers.dev';
 let currentUser = null;
 let currentToken = null;
 
+// --- FUNCIÓN DE ENVÍO AL WORKER ---
 function enviarAScript(datos, callback) {
     fetch(API_URL, {
         method: 'POST',
@@ -13,6 +14,7 @@ function enviarAScript(datos, callback) {
     .catch(err => callback({ ok: false, error: 'Error de conexión: ' + err.message }));
 }
 
+// --- UI Y PESTAÑAS ---
 function showScreen(screenId) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(screenId).classList.add('active');
@@ -22,12 +24,20 @@ function switchTab(tabName) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     if (event && event.target) event.target.classList.add('active');
     document.querySelectorAll('.login-form').forEach(f => f.classList.remove('active'));
-    const formId = 'form-' + tabName.replace('altos-cargos', 'altos').replace('directores', 'directores').replace('gerentes', 'gerentes').replace('jefes-opt', 'jefes-opt');
+    
+    let formId = '';
+    if (tabName === 'altos-cargos') formId = 'form-altos';
+    else if (tabName === 'directores') formId = 'form-directores';
+    else if (tabName === 'gerentes') formId = 'form-gerentes';
+    else if (tabName === 'jefes-opt') formId = 'form-jefes-opt';
+    
     document.getElementById(formId).classList.add('active');
+
     if (tabName === 'gerentes') cargarEstadosParaGerente();
-    if (tabName === 'jefes-opt') cargarOptsParaJefe();
+    if (tabName === 'jefes-opt') cargarEstadosParaOPT();
 }
 
+// --- CARGA DE DESPLEGABLES ---
 function cargarEstadosParaGerente() {
     const select = document.getElementById('estado-gerente');
     if (select.options.length > 1) return;
@@ -35,19 +45,43 @@ function cargarEstadosParaGerente() {
     estados.forEach(e => { let o = document.createElement('option'); o.value = e; o.textContent = e; select.appendChild(o); });
 }
 
-function cargarOptsParaJefe() {
-    const select = document.getElementById('opt-seleccion');
+function cargarEstadosParaOPT() {
+    const select = document.getElementById('estado-opt');
     if (select.options.length > 1) return;
-    enviarAScript({ accion: 'obtenerOPTs' }, function(data) {
-        if (data.ok && data.data) {
-            data.data.forEach(opt => { let o = document.createElement('option'); o.value = opt; o.textContent = opt; select.appendChild(o); });
+    const estados = ['DISTRITO CAPITAL', 'MIRANDA', 'LA GUAIRA', 'LARA', 'ZULIA', 'CARABOBO', 'SUCRE', 'ARAGUA', 'TRUJILLO', 'FALCON', 'MONAGAS', 'DELTA AMACURO', 'BOLÍVAR', 'TÁCHIRA', 'MÉRIDA', 'BARINAS', 'COJEDES', 'APURE', 'AMAZONAS', 'PORTUGUESA', 'NUEVA ESPARTA', 'ANZOÁTEGUI', 'GUÁRICO', 'YARACUY'];
+    estados.forEach(e => { let o = document.createElement('option'); o.value = e; o.textContent = e; select.appendChild(o); });
+}
+
+function cargarOptsPorEstado() {
+    const estado = document.getElementById('estado-opt').value;
+    const selectOpt = document.getElementById('opt-seleccion');
+    selectOpt.innerHTML = '<option value="">-- Cargando OPTs... --</option>';
+
+    if (!estado) {
+        selectOpt.innerHTML = '<option value="">-- Primero seleccione un Estado --</option>';
+        return;
+    }
+
+    enviarAScript({ accion: 'obtenerOptsPorEstado', estado: estado }, function(data) {
+        selectOpt.innerHTML = '<option value="">-- Seleccione su OPT --</option>';
+        if (data.ok && data.data.length > 0) {
+            data.data.forEach(opt => {
+                let o = document.createElement('option');
+                o.value = opt;
+                o.textContent = opt;
+                selectOpt.appendChild(o);
+            });
+        } else {
+            selectOpt.innerHTML = '<option value="">-- No hay OPTs en este Estado --</option>';
         }
     });
 }
 
+// --- LOGIN ---
 function handleLogin(event, tipo) {
     event.preventDefault();
     let payload = { accion: 'login', tipo: tipo };
+    
     if (tipo === 'altos') {
         payload.rol = document.getElementById('rol-alto').value;
         payload.clave = document.getElementById('pass-alto').value;
@@ -78,6 +112,7 @@ function handleLogin(event, tipo) {
     });
 }
 
+// --- CAMBIO DE CLAVE ---
 function handleChangePass(event) {
     event.preventDefault();
     const newPass = document.getElementById('new-pass').value;
@@ -107,6 +142,7 @@ function logout() {
     showScreen('login-screen');
 }
 
+// --- DASHBOARD ---
 function cargarDashboard() {
     enviarAScript({ accion: 'obtenerDashboard', token: currentToken }, function(data) {
         if (data.ok) {
@@ -155,6 +191,7 @@ function updateDashboardView() {
     }
 }
 
+// --- MODALES ---
 function abrirModalGerentes() {
     enviarAScript({ accion: 'obtenerGerentesPorDirector', token: currentToken }, function(data) {
         let tabla = '<tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">Estado</th><th style="padding:5px; border:1px solid #ddd;">Clave</th></tr>';
