@@ -22,20 +22,26 @@ function switchTab(tabName) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     if (event && event.target) event.target.classList.add('active');
     document.querySelectorAll('.login-form').forEach(f => f.classList.remove('active'));
-    const formId = tabName === 'altos-cargos' ? 'form-altos' : (tabName === 'directores' ? 'form-directores' : 'form-gerentes');
+    const formId = 'form-' + tabName.replace('altos-cargos', 'altos').replace('directores', 'directores').replace('gerentes', 'gerentes').replace('jefes-opt', 'jefes-opt');
     document.getElementById(formId).classList.add('active');
     if (tabName === 'gerentes') cargarEstadosParaGerente();
+    if (tabName === 'jefes-opt') cargarOptsParaJefe();
 }
 
 function cargarEstadosParaGerente() {
     const select = document.getElementById('estado-gerente');
     if (select.options.length > 1) return;
     const estados = ['DISTRITO CAPITAL', 'MIRANDA', 'LA GUAIRA', 'LARA', 'ZULIA', 'CARABOBO', 'SUCRE', 'ARAGUA', 'TRUJILLO', 'FALCON', 'MONAGAS', 'DELTA AMACURO', 'BOLÍVAR', 'TÁCHIRA', 'MÉRIDA', 'BARINAS', 'COJEDES', 'APURE', 'AMAZONAS', 'PORTUGUESA', 'NUEVA ESPARTA', 'ANZOÁTEGUI', 'GUÁRICO', 'YARACUY'];
-    estados.forEach(e => {
-        let option = document.createElement('option');
-        option.value = e;
-        option.textContent = e;
-        select.appendChild(option);
+    estados.forEach(e => { let o = document.createElement('option'); o.value = e; o.textContent = e; select.appendChild(o); });
+}
+
+function cargarOptsParaJefe() {
+    const select = document.getElementById('opt-seleccion');
+    if (select.options.length > 1) return;
+    enviarAScript({ accion: 'obtenerOPTs' }, function(data) {
+        if (data.ok && data.data) {
+            data.data.forEach(opt => { let o = document.createElement('option'); o.value = opt; o.textContent = opt; select.appendChild(o); });
+        }
     });
 }
 
@@ -52,6 +58,9 @@ function handleLogin(event, tipo) {
     } else if (tipo === 'gerente') {
         payload.rol = document.getElementById('estado-gerente').value;
         payload.clave = document.getElementById('pass-gerente').value;
+    } else if (tipo === 'opt') {
+        payload.rol = document.getElementById('opt-seleccion').value;
+        payload.clave = document.getElementById('pass-opt').value;
     }
 
     enviarAScript(payload, function(data) {
@@ -137,7 +146,12 @@ function updateDashboardView() {
             </div>
         `;
     } else {
-        contentDiv.innerHTML = `<h3 style="text-align:center; color:#0033A0;">Panel de ${currentUser.rol}</h3>`;
+        contentDiv.innerHTML = `
+            <h3 style="margin-bottom:15px; color:#0033A0; text-align:center;">Panel de ${currentUser.rol}</h3>
+            <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+                <button class="btn-primary" style="width:auto; padding:15px 30px; background:#dc3545;" onclick="abrirModalNovedades()">Gestionar Novedades</button>
+            </div>
+        `;
     }
 }
 
@@ -152,19 +166,15 @@ function abrirModalGerentes() {
         } else {
             tabla += '<tr><td colspan="2" style="text-align:center;">No hay estados asignados.</td></tr>';
         }
-
         let modalHTML = `
             <div id="modal-gerentes" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
                 <div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:500px; max-height: 80vh; overflow-y: auto;">
                     <h3 style="margin-bottom:15px; color:#0033A0;">Gerentes de Estado y Claves</h3>
                     <p style="font-size:14px; margin-bottom:15px;">Entregue estas claves a sus Gerentes de Estado.</p>
-                    <table style="width:100%; border-collapse: collapse; font-size:12px;">
-                        ${tabla}
-                    </table>
+                    <table style="width:100%; border-collapse: collapse; font-size:12px;">${tabla}</table>
                     <button onclick="cerrarModal('modal-gerentes')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button>
                 </div>
-            </div>
-        `;
+            </div>`;
         document.body.insertAdjacentHTML('beforeend', modalHTML);
     });
 }
@@ -180,19 +190,15 @@ function abrirModalOpts() {
         } else {
             tabla += '<tr><td colspan="2" style="text-align:center;">No hay OPTs en este estado.</td></tr>';
         }
-
         let modalHTML = `
             <div id="modal-opts" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
                 <div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:500px; max-height: 80vh; overflow-y: auto;">
                     <h3 style="margin-bottom:15px; color:#0033A0;">OPTs de ${currentUser.estado}</h3>
                     <p style="font-size:14px; margin-bottom:15px;">Entregue estas claves a sus Jefes de OPT.</p>
-                    <table style="width:100%; border-collapse: collapse; font-size:12px;">
-                        ${tabla}
-                    </table>
+                    <table style="width:100%; border-collapse: collapse; font-size:12px;">${tabla}</table>
                     <button onclick="cerrarModal('modal-opts')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button>
                 </div>
-            </div>
-        `;
+            </div>`;
         document.body.insertAdjacentHTML('beforeend', modalHTML);
     });
 }
@@ -202,33 +208,23 @@ function abrirModalCargaVoto() {
         <div id="modal-carga" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
             <div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:400px;">
                 <h3 style="margin-bottom:15px; color:#0033A0;">Registrar Voto</h3>
-                <div class="input-group">
-                    <label>Cédula del Votante:</label>
-                    <input type="text" id="voto-cedula" placeholder="Ej: 14551754" onblur="buscarEnPadron()">
-                </div>
+                <div class="input-group"><label>Cédula del Votante:</label><input type="text" id="voto-cedula" placeholder="Ej: 14551754" onblur="buscarEnPadron()"></div>
                 <div id="info-padron" style="display:none; background:#e8f4f8; padding:10px; border-radius:5px; margin-bottom:15px; border-left: 4px solid #0033A0;">
                     <p style="margin:0; font-size:14px;"><b>Nombre:</b> <span id="info-nombre">-</span></p>
                     <p style="margin:0; font-size:14px;"><b>Cargo:</b> <span id="info-cargo">-</span></p>
                     <p style="margin:0; font-size:14px;"><b>Ubicación:</b> <span id="info-ubicacion">-</span></p>
                 </div>
-                <div class="input-group" id="grupo-nombre" style="display:none;">
-                    <label>Nombre Completo (No está en padrón):</label>
-                    <input type="text" id="voto-nombre" placeholder="Nombre del votante">
-                </div>
+                <div class="input-group" id="grupo-nombre" style="display:none;"><label>Nombre Completo (No está en padrón):</label><input type="text" id="voto-nombre" placeholder="Nombre del votante"></div>
                 <div class="input-group" id="grupo-commit" style="display:none; background:#fff3cd; padding:10px; border-radius:5px; border:1px solid #ffeeba;">
                     <label style="color:#856404;">⚠️ Novedad Detectada</label>
                     <p style="font-size:12px; color:#856404; margin-bottom:5px;">La cédula no está en el padrón. Escriba el motivo:</p>
                     <input type="text" id="voto-commit" placeholder="Justificación" style="width:100%; padding:5px;">
                 </div>
-                <div class="input-group">
-                    <label>Foto (Opcional):</label>
-                    <input type="file" id="voto-foto" accept="image/*" style="border: 1px solid #ccc; padding: 5px; width: 100%; border-radius: 5px;">
-                </div>
+                <div class="input-group"><label>Foto (Opcional):</label><input type="file" id="voto-foto" accept="image/*" style="border: 1px solid #ccc; padding: 5px; width: 100%; border-radius: 5px;"></div>
                 <button class="btn-primary" onclick="guardarVotoReal()" style="margin-top:15px;">Guardar Voto</button>
                 <button onclick="cerrarModal('modal-carga')" style="width:100%; margin-top:10px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cancelar</button>
             </div>
-        </div>
-    `;
+        </div>`;
     document.body.insertAdjacentHTML('beforeend', modalHTML);
 }
 
@@ -238,21 +234,12 @@ function abrirModalNovedades() {
             <div style="background:white; padding:20px; border-radius:10px; width:95%; max-width:800px; max-height: 90vh; overflow-y: auto;">
                 <h3 style="margin-bottom:15px; color:#dc3545;">Gestión de Novedades</h3>
                 <table style="width:100%; border-collapse: collapse; font-size:12px;" id="tabla-novedades">
-                    <thead>
-                        <tr style="background:#f0f0f0;">
-                            <th style="padding:5px; border:1px solid #ddd;">Cédula</th>
-                            <th style="padding:5px; border:1px solid #ddd;">Nombre</th>
-                            <th style="padding:5px; border:1px solid #ddd;">Reportado Por</th>
-                            <th style="padding:5px; border:1px solid #ddd;">Commit</th>
-                            <th style="padding:5px; border:1px solid #ddd;">Acciones</th>
-                        </tr>
-                    </thead>
+                    <thead><tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">Cédula</th><th style="padding:5px; border:1px solid #ddd;">Nombre</th><th style="padding:5px; border:1px solid #ddd;">Reportado Por</th><th style="padding:5px; border:1px solid #ddd;">Commit</th><th style="padding:5px; border:1px solid #ddd;">Acciones</th></tr></thead>
                     <tbody id="tbody-novedades"><tr><td colspan="5" style="text-align:center; padding:10px;">Cargando...</td></tr></tbody>
                 </table>
                 <button onclick="cerrarModal('modal-novedades')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button>
             </div>
-        </div>
-    `;
+        </div>`;
     document.body.insertAdjacentHTML('beforeend', modalHTML);
     cargarNovedades();
 }
@@ -264,21 +251,10 @@ function cargarNovedades() {
             tbody.innerHTML = '';
             data.data.forEach(n => {
                 let tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td style="padding:5px; border:1px solid #ddd;">${n.cedula}</td>
-                    <td style="padding:5px; border:1px solid #ddd;">${n.nombre}</td>
-                    <td style="padding:5px; border:1px solid #ddd;">${n.reportadoPor}</td>
-                    <td style="padding:5px; border:1px solid #ddd;">${n.commit}</td>
-                    <td style="padding:5px; border:1px solid #ddd;">
-                        <button onclick="gestionarNovedad(${n.fila}, 'VALIDAR')" style="background:#28a745; color:white; border:none; padding:5px; border-radius:3px; cursor:pointer;">Validar</button>
-                        <button onclick="gestionarNovedad(${n.fila}, 'INACTIVAR')" style="background:#dc3545; color:white; border:none; padding:5px; border-radius:3px; cursor:pointer;">Inactivar</button>
-                    </td>
-                `;
+                tr.innerHTML = `<td style="padding:5px; border:1px solid #ddd;">${n.cedula}</td><td style="padding:5px; border:1px solid #ddd;">${n.nombre}</td><td style="padding:5px; border:1px solid #ddd;">${n.reportadoPor}</td><td style="padding:5px; border:1px solid #ddd;">${n.commit}</td><td style="padding:5px; border:1px solid #ddd;"><button onclick="gestionarNovedad(${n.fila}, 'VALIDAR')" style="background:#28a745; color:white; border:none; padding:5px; border-radius:3px; cursor:pointer;">Validar</button><button onclick="gestionarNovedad(${n.fila}, 'INACTIVAR')" style="background:#dc3545; color:white; border:none; padding:5px; border-radius:3px; cursor:pointer;">Inactivar</button></td>`;
                 tbody.appendChild(tr);
             });
-        } else {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:10px;">No hay novedades pendientes.</td></tr>`;
-        }
+        } else { tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:10px;">No hay novedades pendientes.</td></tr>`; }
     });
 }
 
@@ -302,12 +278,9 @@ function buscarEnPadron() {
             document.getElementById('info-nombre').textContent = data.datos.nombre;
             document.getElementById('info-cargo').textContent = data.datos.cargo;
             document.getElementById('info-ubicacion').textContent = data.datos.ubicacion;
-            grupoNombre.style.display = 'none';
-            grupoCommit.style.display = 'none';
+            grupoNombre.style.display = 'none'; grupoCommit.style.display = 'none';
         } else {
-            infoDiv.style.display = 'none';
-            grupoNombre.style.display = 'block';
-            grupoCommit.style.display = 'block';
+            infoDiv.style.display = 'none'; grupoNombre.style.display = 'block'; grupoCommit.style.display = 'block';
         }
     });
 }
@@ -318,7 +291,6 @@ function guardarVotoReal() {
     const commit = document.getElementById('voto-commit').value;
     const fotoInput = document.getElementById('voto-foto');
     if (!cedula) { alert("Debe ingresar una cédula."); return; }
-
     const enviarDatos = (fotoUrl) => {
         enviarAScript({ accion: 'cargarVoto', token: currentToken, cedula_votante: cedula, nombre_votante: nombre, commit_novedad: commit, foto_url: fotoUrl }, function(data) {
             if (data.ok) { alert("✅ " + data.mensaje); cerrarModal('modal-carga'); cargarDashboard(); }
@@ -331,7 +303,6 @@ function guardarVotoReal() {
             }
         });
     };
-
     if (fotoInput.files.length > 0) {
         const file = fotoInput.files[0];
         const reader = new FileReader();
