@@ -2,7 +2,7 @@ const API_URL = 'https://blue-river-9145.ipostel-monitor.workers.dev';
 let currentUser = null;
 let currentToken = null;
 
-// --- FUNCIÓN DE PETICIÓN (Usa fetch normal, el Worker maneja el CORS) ---
+// --- FUNCIÓN DE PETICIÓN (Usa el Worker) ---
 function enviarAScript(datos) {
     return fetch(API_URL, {
         method: 'POST',
