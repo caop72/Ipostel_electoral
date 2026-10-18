@@ -114,12 +114,16 @@ function updateDashboardView() {
                 </button>
             </div>
         `;
-    } else if (currentUser.rol === 'OBSERVATORIO' || currentUser.rol === 'PRESIDENCIA' || currentUser.rol === 'DESPACHO') {
+    } else {
+        // Para OBSERVATORIO, PRESIDENCIA, DESPACHO
         contentDiv.innerHTML = `
             <h3 style="margin-bottom:15px; color:#0033A0; text-align:center;">Panel de ${currentUser.rol}</h3>
             <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
                 <button class="btn-primary" style="width:auto; padding:15px 30px; background:#dc3545;" onclick="abrirModalNovedades()">
                     <i class="fa-solid fa-exclamation-triangle"></i> Gestionar Novedades
+                </button>
+                <button class="btn-primary" style="width:auto; padding:15px 30px; background:#0033A0;" onclick="alert('Módulo de estadísticas en construcción.')">
+                    <i class="fa-solid fa-chart-line"></i> Ver Estadísticas
                 </button>
             </div>
         `;
