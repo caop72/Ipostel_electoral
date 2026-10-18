@@ -2,18 +2,28 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbx9k3i2Agxy5C66uk1I03ao
 let currentUser = null;
 let authToken = null;
 
+// --- FUNCIONES DE UI ---
 function showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
 }
 
 function switchTab(tabName) {
+    // Quitar clase activa a todos los botones
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    event.target.classList.add('active');
+    // Poner activa al botón clickeado
+    if (event && event.target) {
+        event.target.classList.add('active');
+    }
+    
+    // Quitar clase activa a todos los formularios
     document.querySelectorAll('.login-form').forEach(f => f.classList.remove('active'));
-    document.getElementById(`form-${tabName}`).classList.add('active');
+    // Poner activo al formulario correspondiente
+    const form = document.getElementById(`form-${tabName}`);
+    if (form) form.classList.add('active');
 }
 
+// --- LÓGICA DE AUTENTICACIÓN ---
 async function handleLogin(event, tipo) {
     event.preventDefault();
     
@@ -51,6 +61,7 @@ async function handleLogin(event, tipo) {
         }
     } catch (error) {
         alert('Error de conexión. Intente de nuevo.');
+        console.error(error);
     }
 }
 
@@ -85,6 +96,7 @@ function logout() {
     showScreen('login-screen');
 }
 
+// --- LÓGICA DEL DASHBOARD ---
 async function updateDashboardView() {
     const contentDiv = document.getElementById('role-content');
     if (!currentUser) return;
@@ -121,6 +133,7 @@ async function updateDashboardView() {
     }
 }
 
+// --- ACCIONES ---
 function cargarVotoCentral() {
     const modalHTML = `
         <div id="modal-carga" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
