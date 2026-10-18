@@ -207,32 +207,92 @@ async function descargarCSV() {
 }
 
 function cargarVotoCentral() {
-    // Lógica para cargar votos del personal central
-    const cedula = prompt('Ingrese la cédula del votante:');
-    if (!cedula) return;
-    
-    const nombre = prompt('Ingrese el nombre del votante:');
-    if (!nombre) return;
+    // Abrimos un modal para que el Director cargue el voto del personal central
+    const modalHTML = `
+        <div id="modal-carga" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;">
+            <div style="background:white; padding:25px; border-radius:10px; width:90%; max-width:400px; text-align:center;">
+                <h3 style="margin-bottom:15px; color:#C8102E;">Cargar Voto (Personal Central)</h3>
+                <input type="text" id="input-cedula" placeholder="Cédula del votante" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:5px;">
+                <input type="text" id="input-nombre" placeholder="Nombre completo" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:5px;">
+                <input type="file" id="input-foto" accept="image/*" style="width:100%; margin-bottom:15px;">
+                <button onclick="enviarVoto()" style="background:#C8102E; color:white; padding:10px 20px; border:none; border-radius:5px; width:100%; margin-bottom:10px; font-weight:bold;">Registrar Voto</button>
+                <button onclick="cerrarModalCarga()" style="background:#ccc; color:black; padding:10px 20px; border:none; border-radius:5px; width:100%;">Cancelar</button>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
 
-    fetch(API_URL, {
-        method: 'POST',
-        body: JSON.stringify({
-            accion: 'cargarVoto',
-            token: authToken,
-            cedula_votante: cedula,
-            nombre_votante: nombre,
-            es_novedad: false,
-            commit_novedad: '',
-            foto_url: ''
-        })
-    }).then(r => r.json()).then(res => {
-        if (res.ok) {
-            alert('Voto registrado exitosamente.');
-            updateDashboardView();
-        } else {
-            alert(res.error);
+function cerrarModalCarga() {
+    const modal = document.getElementById('modal-carga');
+    if (modal) modal.remove();
+}
+
+async function enviarVoto() {
+    const cedula = document.getElementById('input-cedula').value.trim();
+    const nombre = document.getElementById('input-nombre').value.trim();
+    const fotoInput = document.getElementById('input-foto');
+
+    if (!cedula || !nombre) {
+        alert('Debe ingresar cédula y nombre.');
+        return;
+    }
+
+    let fotoUrl = '';
+
+    // Si hay foto, la subimos primero
+    if (fotoInput.files.length > 0) {
+        const file = fotoInput.files[0];
+        const reader = new FileReader();
+        const base64 = await new Promise((resolve) => {
+            reader.onload = () => resolve(reader.result.split(',')[1]);
+            reader.readAsDataURL(file);
+        });
+
+        try {
+            const resFoto = await fetch(API_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    accion: 'subirFoto',
+                    token: authToken,
+                    base64: base64,
+                    nombre: `voto_${cedula}.jpg`
+                })
+            });
+            const dataFoto = await resFoto.json();
+            if (dataFoto.ok) fotoUrl = dataFoto.url;
+        } catch (e) {
+            console.warn('Error subiendo foto, se registrará sin foto.');
         }
-    });
+    }
+
+    // Ahora enviamos el voto
+    try {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify({
+                accion: 'cargarVoto',
+                token: authToken,
+                cedula_votante: cedula,
+                nombre_votante: nombre,
+                es_novedad: false,
+                commit_novedad: '',
+                foto_url: fotoUrl
+            })
+        });
+        const result = await response.json();
+
+        if (result.ok) {
+            alert('✅ Voto registrado exitosamente.');
+            cerrarModalCarga();
+            updateDashboardView(); // Refrescamos las estadísticas
+        } else {
+            alert('❌ Error: ' + result.error);
+        }
+    } catch (error) {
+        alert('Error de conexión al registrar el voto.');
+        console.error(error);
+    }
 }
 
 function gestionarClaves() {
