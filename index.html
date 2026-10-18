@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IPOSTEL - Control Electoral 2026</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Iconos -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -21,6 +20,7 @@
                 <div class="tabs">
                     <button class="tab-btn active" onclick="switchTab('altos-cargos')">Altos Cargos</button>
                     <button class="tab-btn" onclick="switchTab('directores')">Directores</button>
+                    <button class="tab-btn" onclick="switchTab('jefes-opt')">Jefes de OPT</button>
                 </div>
 
                 <!-- Formulario Altos Cargos -->
@@ -75,6 +75,22 @@
                     <button type="submit" class="btn-primary">Registrarse / Ingresar</button>
                     <p class="hint">Su registro debe ser autorizado por el Observatorio.</p>
                 </form>
+
+                <!-- Formulario Jefes de OPT -->
+                <form id="form-jefes-opt" class="login-form" onsubmit="handleLogin(event, 'opt')">
+                    <div class="input-group">
+                        <label for="opt-seleccion">Seleccione su OPT (Sede):</label>
+                        <select id="opt-seleccion" required>
+                            <option value="">-- Seleccione su OPT --</option>
+                            <!-- Se llenará dinámicamente con JS -->
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="pass-opt">Clave (Proporcionada por su Director):</label>
+                        <input type="password" id="pass-opt" placeholder="Ingrese su clave de 4 dígitos" required>
+                    </div>
+                    <button type="submit" class="btn-primary">Ingresar</button>
+                </form>
             </div>
         </div>
 
@@ -110,7 +126,6 @@
                 </div>
                 
                 <div class="stats-grid" id="stats-container">
-                    <!-- Aquí se inyectarán las estadísticas vía JS -->
                     <div class="stat-card">
                         <h3>Total Padrón</h3>
                         <p class="stat-number">---</p>
@@ -121,7 +136,6 @@
                     </div>
                 </div>
 
-                <!-- Espacio para el contenido dinámico según el rol -->
                 <div id="role-content">
                     <p style="text-align: center; color: #666;">Seleccione una opción para comenzar.</p>
                 </div>
@@ -129,6 +143,6 @@
         </div>
     </div>
 
-    <script src="app.js?v=4"></script>
+    <script src="app.js?v=5"></script>
 </body>
 </html>
