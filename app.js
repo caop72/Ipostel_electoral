@@ -1,5 +1,5 @@
 // URL DIRECTA DE TU GOOGLE APPS SCRIPT
-const API_URL = 'https://script.google.com/macros/s/AKfycbyh0dzss884hspHxQ-T90kusjvwAksXIrQgJaA9Ge25TCAfnBxxyykfe73bJI14upBM/exec';
+const API_URL = 'https://blue-river-9145.ipostel-monitor.workers.dev';
 
 let currentUser = null;
 let currentToken = null;
