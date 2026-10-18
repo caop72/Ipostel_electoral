@@ -1,28 +1,14 @@
-const API_URL = 'https://blue-river-9145.ipostel-monitor.workers.dev';
-let currentUser = null;
+// --- VARIABLES GLOBALES ---
 let currentToken = null;
+let currentUser = null;
+let API_URL = 'https://script.google.com/macros/s/AKfycbw.../exec'; // Asegúrate de que esta URL sea la correcta en tu app.js original
+
+// Variables para los gráficos (para poder destruirlos y recrearlos)
 let chartEstados = null;
 let chartDirecciones = null;
 let chartHoras = null;
 
-const mapaDirectores = {
-    'CAPITAL': ['DISTRITO CAPITAL', 'MIRANDA', 'LA GUAIRA'],
-    'LARA': ['LARA'],
-    'ZULIA': ['ZULIA'],
-    'CARABOBO_SUCRE': ['CARABOBO', 'SUCRE'],
-    'ARAGUA': ['ARAGUA'],
-    'TRUJILLO_FALCON': ['TRUJILLO', 'FALCON'],
-    'MONAGAS_DELTA': ['MONAGAS', 'DELTA AMACURO'],
-    'BOLIVAR': ['BOLÍVAR'],
-    'TACHIRA_MERIDA': ['TÁCHIRA', 'MÉRIDA'],
-    'BARINAS': ['BARINAS'],
-    'COJEDES': ['COJEDES'],
-    'APURE_AMAZONAS': ['APURE', 'AMAZONAS'],
-    'PORTUGUESA_NUEVA_ESPARTA': ['PORTUGUESA', 'NUEVA ESPARTA'],
-    'ANZOATEGUI': ['ANZOÁTEGUI'],
-    'GUARICO_YARACUY': ['GUÁRICO', 'YARACUY']
-};
-
+// --- FUNCIONES DE CONEXIÓN ---
 function enviarAScript(datos, callback) {
     fetch(API_URL, {
         method: 'POST',
@@ -34,137 +20,25 @@ function enviarAScript(datos, callback) {
     .catch(err => callback({ ok: false, error: 'Error de conexión: ' + err.message }));
 }
 
-function showScreen(screenId) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById(screenId).classList.add('active');
-}
-
-function switchTab(tabName) {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    if (event && event.target) event.target.classList.add('active');
-    document.querySelectorAll('.login-form').forEach(f => f.classList.remove('active'));
-    let formId = '';
-    if (tabName === 'altos-cargos') formId = 'form-altos';
-    else if (tabName === 'directores') formId = 'form-directores';
-    else if (tabName === 'gerentes') formId = 'form-gerentes';
-    else if (tabName === 'jefes-opt') formId = 'form-jefes-opt';
-    document.getElementById(formId).classList.add('active');
-    if (tabName === 'gerentes') cargarEstadosParaGerente();
-    if (tabName === 'jefes-opt') cargarEstadosParaOPT();
-}
-
-function cargarEstadosParaGerente() {
-    const select = document.getElementById('estado-gerente');
-    if (select.options.length > 1) return;
-    const estados = ['DISTRITO CAPITAL', 'MIRANDA', 'LA GUAIRA', 'LARA', 'ZULIA', 'CARABOBO', 'SUCRE', 'ARAGUA', 'TRUJILLO', 'FALCON', 'MONAGAS', 'DELTA AMACURO', 'BOLÍVAR', 'TÁCHIRA', 'MÉRIDA', 'BARINAS', 'COJEDES', 'APURE', 'AMAZONAS', 'PORTUGUESA', 'NUEVA ESPARTA', 'ANZOÁTEGUI', 'GUÁRICO', 'YARACUY'];
-    estados.forEach(e => { let o = document.createElement('option'); o.value = e; o.textContent = e; select.appendChild(o); });
-}
-
-function cargarEstadosParaOPT() {
-    const select = document.getElementById('estado-opt');
-    if (select.options.length > 1) return;
-    const estados = ['DISTRITO CAPITAL', 'MIRANDA', 'LA GUAIRA', 'LARA', 'ZULIA', 'CARABOBO', 'SUCRE', 'ARAGUA', 'TRUJILLO', 'FALCON', 'MONAGAS', 'DELTA AMACURO', 'BOLÍVAR', 'TÁCHIRA', 'MÉRIDA', 'BARINAS', 'COJEDES', 'APURE', 'AMAZONAS', 'PORTUGUESA', 'NUEVA ESPARTA', 'ANZOÁTEGUI', 'GUÁRICO', 'YARACUY'];
-    estados.forEach(e => { let o = document.createElement('option'); o.value = e; o.textContent = e; select.appendChild(o); });
-}
-
-function cargarOptsPorEstado() {
-    const estado = document.getElementById('estado-opt').value;
-    const selectOpt = document.getElementById('opt-seleccion');
-    selectOpt.innerHTML = '<option value="">-- Cargando OPTs... --</option>';
-    if (!estado) {
-        selectOpt.innerHTML = '<option value="">-- Primero seleccione un Estado --</option>';
-        return;
-    }
-    enviarAScript({ accion: 'obtenerOptsPorEstado', estado: estado }, function(data) {
-        if (data.ok && data.data && data.data.length > 0) {
-            selectOpt.innerHTML = '<option value="">-- Seleccione su OPT --</option>';
-            data.data.forEach(opt => {
-                let o = document.createElement('option');
-                o.value = opt;
-                o.textContent = opt;
-                selectOpt.appendChild(o);
-            });
-        } else {
-            selectOpt.innerHTML = '<option value="">-- No hay OPTs en este Estado --</option>';
-        }
-    });
-}
-
-function handleLogin(event, tipo) {
-    event.preventDefault();
-    let payload = { accion: 'login', tipo: tipo };
-    if (tipo === 'altos') {
-        payload.rol = document.getElementById('rol-alto').value;
-        payload.clave = document.getElementById('pass-alto').value;
-    } else if (tipo === 'director') {
-        payload.rol = document.getElementById('rol-director').value;
-        payload.correo = document.getElementById('correo-director').value;
-        payload.clave = document.getElementById('pass-director').value;
-    } else if (tipo === 'gerente') {
-        payload.rol = document.getElementById('estado-gerente').value;
-        payload.clave = document.getElementById('pass-gerente').value;
-    } else if (tipo === 'opt') {
-        payload.rol = document.getElementById('opt-seleccion').value;
-        payload.clave = document.getElementById('pass-opt').value;
-    }
-    enviarAScript(payload, function(data) {
-        if (data.ok && data.requiereCambio) {
-            currentUser = { rol: payload.rol, nombre: payload.correo || payload.rol, estado: payload.rol };
-            currentUser.correo = data.correo || payload.correo;
-            showScreen('change-pass-screen');
-        } else if (data.ok) {
-            currentToken = data.token;
-            currentUser = data.usuario;
-            loginSuccess();
-        } else {
-            alert('Error: ' + data.error);
-        }
-    });
-}
-
-function handleChangePass(event) {
-    event.preventDefault();
-    const newPass = document.getElementById('new-pass').value;
-    if (newPass.length === 4 && !isNaN(newPass)) {
-        enviarAScript({ accion: 'cambiarClave', correo: currentUser.correo, nuevaClave: newPass }, function(data) {
-            if (data.ok) {
-                alert('Clave guardada correctamente.');
-                let loginPayload = { accion: 'login', tipo: currentUser.rol === 'DIRECTOR' ? 'director' : (currentUser.rol === 'JEFE_OPT' ? 'opt' : (currentUser.rol === 'GERENTE_ESTADO' ? 'gerente' : 'altos')), correo: currentUser.correo, rol: currentUser.estado, clave: newPass };
-                enviarAScript(loginPayload, function(data2) {
-                    if (data2.ok) { currentToken = data2.token; currentUser = data2.usuario; loginSuccess(); }
-                    else { alert('Error al iniciar sesión.'); logout(); }
-                });
-            } else { alert('Error al guardar clave: ' + data.error); }
-        });
-    } else { alert('La clave debe tener 4 dígitos.'); }
-}
-
-function loginSuccess() {
-    document.getElementById('user-name-display').textContent = currentUser.nombre;
-    showScreen('dashboard-screen');
-    cargarDashboard();
-}
-
-function logout() {
-    currentUser = null; currentToken = null;
-    document.getElementById('new-pass').value = '';
-    showScreen('login-screen');
-}
-
+// --- DASHBOARD Y ESTADÍSTICAS ---
 function cargarDashboard() {
     enviarAScript({ accion: 'obtenerEstadisticas', token: currentToken }, function(data) {
         if (data.ok) {
+            // Actualizar tarjetas superiores
             document.querySelectorAll('.stat-number')[0].textContent = data.data.totalPadron;
             document.querySelectorAll('.stat-number')[1].textContent = data.data.totalVotos;
             const participacion = data.data.totalPadron > 0 ? ((data.data.totalVotos / data.data.totalPadron) * 100).toFixed(1) : 0;
             document.querySelectorAll('.stat-number')[2].textContent = participacion + '%';
             document.querySelectorAll('.stat-number')[3].textContent = data.data.totalNovedades;
             
+            // Dibujar gráficos si no es Jefe de OPT
             if (currentUser.rol !== 'JEFE_OPT') {
                 document.getElementById('charts-container').style.display = 'block';
                 dibujarGraficos(data.data);
-                cargarPorVerificar(); // <-- ESTA LÍNEA ES CLAVE
+                cargarPorVerificar(); 
             }
+        } else {
+            console.error("Error al obtener estadísticas:", data.error);
         }
     });
     updateDashboardView();
@@ -195,20 +69,20 @@ function cargarPorVerificar() {
 }
 
 function dibujarGraficos(data) {
-    // --- Gráfico 1: % de Participación por Estado ---
-    if (data.padronPorEstado && data.votosPorEstado) {
-        const estados = Object.keys(data.padronPorEstado).sort();
+    // --- Gráfico 1: Participación por Estado ---
+    const estados = Object.keys(data.padronPorEstado || {}).sort();
+    if (estados.length > 0) {
         const participacionData = estados.map(e => {
             const padron = data.padronPorEstado[e] || 0;
             const votos = data.votosPorEstado[e] || 0;
             return padron > 0 ? ((votos / padron) * 100).toFixed(1) : 0;
         });
         
-        if (window.chartEstados) window.chartEstados.destroy();
-        const canvasEstados = document.getElementById('chartEstados');
-        if (canvasEstados) {
-            const ctx1 = canvasEstados.getContext('2d');
-            window.chartEstados = new Chart(ctx1, {
+        if (chartEstados) chartEstados.destroy();
+        const canvas1 = document.getElementById('chartEstados');
+        if (canvas1) {
+            const ctx1 = canvas1.getContext('2d');
+            chartEstados = new Chart(ctx1, {
                 type: 'bar',
                 data: { 
                     labels: estados, 
@@ -222,28 +96,25 @@ function dibujarGraficos(data) {
                     responsive: true,
                     maintainAspectRatio: false,
                     scales: { 
-                        y: { 
-                            beginAtZero: true,
-                            max: 100,
-                            ticks: { callback: function(value) { return value + '%'; } }
-                        } 
+                        y: { beginAtZero: true, max: 100, ticks: { callback: function(value) { return value + '%'; } } },
+                        x: { ticks: { maxRotation: 90, minRotation: 45 } }
                     } 
                 }
             });
         }
     }
     
-    // --- Gráfico 2: Por Dirección ---
-    if (data.padronPorDireccion && data.votosPorDireccion) {
-        const direcciones = Object.keys(data.padronPorDireccion).sort();
+    // --- Gráfico 2: Avance por Dirección ---
+    const direcciones = Object.keys(data.padronPorDireccion || {}).sort();
+    if (direcciones.length > 0) {
         const padronDirData = direcciones.map(d => data.padronPorDireccion[d] || 0);
         const votosDirData = direcciones.map(d => data.votosPorDireccion[d] || 0);
         
-        if (window.chartDirecciones) window.chartDirecciones.destroy();
-        const canvasDirecciones = document.getElementById('chartDirecciones');
-        if (canvasDirecciones) {
-            const ctx2 = canvasDirecciones.getContext('2d');
-            window.chartDirecciones = new Chart(ctx2, {
+        if (chartDirecciones) chartDirecciones.destroy();
+        const canvas2 = document.getElementById('chartDirecciones');
+        if (canvas2) {
+            const ctx2 = canvas2.getContext('2d');
+            chartDirecciones = new Chart(ctx2, {
                 type: 'bar',
                 data: { labels: direcciones, datasets: [
                     { label: 'Padrón', data: padronDirData, backgroundColor: 'rgba(0, 51, 160, 0.5)' },
@@ -252,22 +123,25 @@ function dibujarGraficos(data) {
                 options: { 
                     responsive: true, 
                     maintainAspectRatio: false,
-                    scales: { y: { beginAtZero: true } } 
+                    scales: { 
+                        y: { beginAtZero: true },
+                        x: { ticks: { maxRotation: 90, minRotation: 45 } }
+                    } 
                 }
             });
         }
     }
     
     // --- Gráfico 3: Curva por Hora ---
-    if (data.votosPorHora) {
-        const horas = Object.keys(data.votosPorHora).sort();
+    const horas = Object.keys(data.votosPorHora || {}).sort();
+    if (horas.length > 0) {
         const votosHora = horas.map(h => data.votosPorHora[h]);
         
-        if (window.chartHoras) window.chartHoras.destroy();
-        const canvasHoras = document.getElementById('chartHoras');
-        if (canvasHoras) {
-            const ctx3 = canvasHoras.getContext('2d');
-            window.chartHoras = new Chart(ctx3, {
+        if (chartHoras) chartHoras.destroy();
+        const canvas3 = document.getElementById('chartHoras');
+        if (canvas3) {
+            const ctx3 = canvas3.getContext('2d');
+            chartHoras = new Chart(ctx3, {
                 type: 'line',
                 data: { labels: horas, datasets: [{
                     label: 'Votos por Hora', data: votosHora,
@@ -286,7 +160,7 @@ function dibujarGraficos(data) {
 
 function updateDashboardView() {
     const contentDiv = document.getElementById('role-content');
-    if (!contentDiv) return; // Validación de seguridad
+    if (!contentDiv) return;
     
     if (currentUser.rol === 'DIRECTOR') {
         contentDiv.innerHTML = `
@@ -375,171 +249,8 @@ function abrirModalCargaLote() {
         </div>`;
     document.body.insertAdjacentHTML('beforeend', modalHTML);
 }
-function procesarLote() {
-    const texto = document.getElementById('lote-cedulas').value;
-    // Separar por comas o saltos de línea, y limpiar espacios en blanco
-    const cedulas = texto.split(/[\n,]+/).map(c => c.trim()).filter(c => c.length > 0);
-    
-    if (cedulas.length === 0) { alert("No hay cédulas para procesar."); return; }
-    
-    let errores = [];
-    let exitos = 0;
-    let procesadas = 0;
-    
-    function procesarSiguiente(index) {
-        if (index >= cedulas.length) {
-            // Al terminar, mostrar resumen
-            alert(`Lote procesado: ${exitos} exitosos, ${errores.length} errores.\n\nErrores:\n${errores.join('\n')}`);
-            cerrarModal('modal-lote');
-            cargarDashboard();
-            return;
-        }
-        
-        const cedula = cedulas[index];
-        
-        enviarAScript({ 
-            accion: 'cargarVoto', 
-            token: currentToken, 
-            cedula_votante: cedula, 
-            nombre_votante: '', 
-            commit_novedad: '', 
-            foto_url: '' 
-        }, function(data) {
-            if (data.ok) {
-                exitos++;
-            } else {
-                // Si la cédula no está en el padrón, se registra como error pero se continúa
-                errores.push(cedula + ': ' + data.error);
-            }
-            procesarSiguiente(index + 1);
-        });
-    }
-    
-    procesarSiguiente(0);
-}
 
-function abrirModalNovedades() {
-    let modalHTML = `
-        <div id="modal-novedades" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center; z-index:1000;">
-            <div style="background:white; padding:20px; border-radius:10px; width:95%; max-width:800px; max-height:90vh; overflow-y:auto;">
-                <h3 style="margin-bottom:15px; color:#dc3545;">Gestión de Novedades</h3>
-                <table style="width:100%; border-collapse:collapse; font-size:12px;" id="tabla-novedades">
-                    <thead><tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">Cédula</th><th style="padding:5px; border:1px solid #ddd;">Nombre</th><th style="padding:5px; border:1px solid #ddd;">Reportado Por</th><th style="padding:5px; border:1px solid #ddd;">Commit</th><th style="padding:5px; border:1px solid #ddd;">Acciones</th></tr></thead>
-                    <tbody id="tbody-novedades"><tr><td colspan="5" style="text-align:center; padding:10px;">Cargando...</td></tr></tbody>
-                </table>
-                <button onclick="cerrarModal('modal-novedades')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button>
-            </div>
-        </div>`;
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
-    cargarNovedades();
-}
-
-function cargarNovedades() {
-    enviarAScript({ accion: 'obtenerNovedades', token: currentToken }, function(data) {
-        const tbody = document.getElementById('tbody-novedades');
-        if (data.ok && data.data.length > 0) {
-            tbody.innerHTML = '';
-            data.data.forEach(n => {
-                let tr = document.createElement('tr');
-                tr.innerHTML = `<td style="padding:5px; border:1px solid #ddd;">${n.cedula}</td><td style="padding:5px; border:1px solid #ddd;">${n.nombre}</td><td style="padding:5px; border:1px solid #ddd;">${n.reportadoPor}</td><td style="padding:5px; border:1px solid #ddd;">${n.commit}</td><td style="padding:5px; border:1px solid #ddd;"><button onclick="gestionarNovedad(${n.fila}, 'VALIDAR')" style="background:#28a745; color:white; border:none; padding:5px; border-radius:3px; cursor:pointer;">Validar</button><button onclick="gestionarNovedad(${n.fila}, 'INACTIVAR')" style="background:#dc3545; color:white; border:none; padding:5px; border-radius:3px; cursor:pointer;">Inactivar</button></td>`;
-                tbody.appendChild(tr);
-            });
-        } else { tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:10px;">No hay novedades pendientes.</td></tr>`; }
-    });
-}
-
-function gestionarNovedad(fila, accion) {
-    if (!confirm(`¿Está seguro de ${accion} esta novedad?`)) return;
-    enviarAScript({ accion: 'gestionarNovedad', token: currentToken, fila: fila, accionNovedad: accion }, function(data) {
-        if (data.ok) { alert(data.mensaje); cargarNovedades(); cargarDashboard(); }
-        else { alert("Error: " + data.error); }
-    });
-}
-
-function abrirModalGerentes() {
-    enviarAScript({ accion: 'obtenerGerentesPorDirector', token: currentToken }, function(data) {
-        let tabla = '<tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">Estado</th><th style="padding:5px; border:1px solid #ddd;">Clave</th></tr>';
-        if (data.ok && data.data.length > 0) {
-            data.data.forEach((estado, index) => {
-                const clave = String(1000 + index).slice(-4);
-                tabla += `<tr><td style="padding:5px; border:1px solid #ddd;">${estado}</td><td style="padding:5px; border:1px solid #ddd; font-weight:bold;">${clave}</td></tr>`;
-            });
-        } else {
-            tabla += '<tr><td colspan="2" style="text-align:center;">No hay estados asignados.</td></tr>';
-        }
-        let modalHTML = `<div id="modal-gerentes" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;"><div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:500px; max-height:80vh; overflow-y:auto;"><h3 style="margin-bottom:15px; color:#0033A0;">Gerentes de Estado y Claves</h3><p style="font-size:14px; margin-bottom:15px;">Entregue estas claves a sus Gerentes de Estado.</p><table style="width:100%; border-collapse:collapse; font-size:12px;">${tabla}</table><button onclick="cerrarModal('modal-gerentes')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button></div></div>`;
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
-    });
-}
-
-function abrirModalOpts() {
-    enviarAScript({ accion: 'obtenerOptsPorEstado', token: currentToken, estado: currentUser.estado }, function(data) {
-        let tabla = '<tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">OPT</th><th style="padding:5px; border:1px solid #ddd;">Clave</th></tr>';
-        if (data.ok && data.data.length > 0) {
-            data.data.forEach((opt, index) => {
-                const clave = String(2000 + index).slice(-4);
-                tabla += `<tr><td style="padding:5px; border:1px solid #ddd;">${opt}</td><td style="padding:5px; border:1px solid #ddd; font-weight:bold;">${clave}</td></tr>`;
-            });
-        } else {
-            tabla += '<tr><td colspan="2" style="text-align:center;">No hay OPTs en este estado.</td></tr>';
-        }
-        let modalHTML = `<div id="modal-opts" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;"><div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:500px; max-height:80vh; overflow-y:auto;"><h3 style="margin-bottom:15px; color:#0033A0;">OPTs de ${currentUser.estado}</h3><p style="font-size:14px; margin-bottom:15px;">Entregue estas claves a sus Jefes de OPT.</p><table style="width:100%; border-collapse:collapse; font-size:12px;">${tabla}</table><button onclick="cerrarModal('modal-opts')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button></div></div>`;
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
-    });
-}
-
-function buscarEnPadron() {
-    const cedula = document.getElementById('voto-cedula').value;
-    if (!cedula || cedula.length < 5) return;
-    enviarAScript({ accion: 'consultarPadron', token: currentToken, cedula: cedula }, function(data) {
-        const infoDiv = document.getElementById('info-padron');
-        const grupoNombre = document.getElementById('grupo-nombre');
-        const grupoCommit = document.getElementById('grupo-commit');
-        if (data.ok && data.encontrado) {
-            infoDiv.style.display = 'block';
-            document.getElementById('info-nombre').textContent = data.datos.nombre;
-            document.getElementById('info-cargo').textContent = data.datos.cargo;
-            document.getElementById('info-ubicacion').textContent = data.datos.ubicacion;
-            grupoNombre.style.display = 'none'; grupoCommit.style.display = 'none';
-        } else {
-            infoDiv.style.display = 'none'; grupoNombre.style.display = 'block'; grupoCommit.style.display = 'block';
-        }
-    });
-}
-
-function guardarVotoReal() {
-    const cedula = document.getElementById('voto-cedula').value;
-    const nombre = document.getElementById('voto-nombre').value;
-    const commit = document.getElementById('voto-commit').value;
-    const fotoInput = document.getElementById('voto-foto');
-    if (!cedula) { alert("Debe ingresar una cédula."); return; }
-    const enviarDatos = (fotoUrl) => {
-        enviarAScript({ accion: 'cargarVoto', token: currentToken, cedula_votante: cedula, nombre_votante: nombre, commit_novedad: commit, foto_url: fotoUrl }, function(data) {
-            if (data.ok) { alert("✅ " + data.mensaje); cerrarModal('modal-carga'); cargarDashboard(); }
-            else {
-                if (data.requiereCommit) {
-                    document.getElementById('grupo-nombre').style.display = 'block';
-                    document.getElementById('grupo-commit').style.display = 'block';
-                    alert("⚠️ " + data.error);
-                } else { alert("Error: " + data.error); }
-            }
-        });
-    };
-    if (fotoInput.files.length > 0) {
-        const file = fotoInput.files[0];
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const base64Data = e.target.result.split(',')[1];
-            enviarAScript({ accion: 'subirFoto', token: currentToken, base64: base64Data, nombre: 'voto_' + cedula + '.jpg' }, function(dataFoto) {
-                if (dataFoto.ok) enviarDatos(dataFoto.url);
-                else { alert("Error al subir foto: " + dataFoto.error); enviarDatos(''); }
-            });
-        };
-        reader.readAsDataURL(file);
-    } else { enviarDatos(''); }
-}
-
-function cerrarModal(idModal) {
-    const modal = document.getElementById(idModal);
+function cerrarModal(id) {
+    const modal = document.getElementById(id);
     if (modal) modal.remove();
 }
