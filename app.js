@@ -47,9 +47,17 @@ function cargarEstadosParaGerente() {
 
 function cargarEstadosParaOPT() {
     const select = document.getElementById('estado-opt');
+    // Si ya tiene opciones (más de la de por defecto), no hace nada
     if (select.options.length > 1) return;
+    
     const estados = ['DISTRITO CAPITAL', 'MIRANDA', 'LA GUAIRA', 'LARA', 'ZULIA', 'CARABOBO', 'SUCRE', 'ARAGUA', 'TRUJILLO', 'FALCON', 'MONAGAS', 'DELTA AMACURO', 'BOLÍVAR', 'TÁCHIRA', 'MÉRIDA', 'BARINAS', 'COJEDES', 'APURE', 'AMAZONAS', 'PORTUGUESA', 'NUEVA ESPARTA', 'ANZOÁTEGUI', 'GUÁRICO', 'YARACUY'];
-    estados.forEach(e => { let o = document.createElement('option'); o.value = e; o.textContent = e; select.appendChild(o); });
+    
+    estados.forEach(e => {
+        let o = document.createElement('option');
+        o.value = e;
+        o.textContent = e;
+        select.appendChild(o);
+    });
 }
 
 function cargarOptsPorEstado() {
