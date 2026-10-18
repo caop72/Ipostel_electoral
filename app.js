@@ -2,23 +2,18 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbx9k3i2Agxy5C66uk1I03ao
 let currentUser = null;
 let authToken = null;
 
-// --- FUNCIONES DE UI ---
+// --- FUNCIONES DE UI (ESTO ES LO QUE FALTABA) ---
 function showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
 }
 
 function switchTab(tabName) {
-    // Quitar clase activa a todos los botones
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    // Poner activa al botón clickeado
     if (event && event.target) {
         event.target.classList.add('active');
     }
-    
-    // Quitar clase activa a todos los formularios
     document.querySelectorAll('.login-form').forEach(f => f.classList.remove('active'));
-    // Poner activo al formulario correspondiente
     const form = document.getElementById(`form-${tabName}`);
     if (form) form.classList.add('active');
 }
