@@ -163,13 +163,12 @@ function cargarDashboard() {
             if (currentUser.rol !== 'JEFE_OPT') {
                 document.getElementById('charts-container').style.display = 'block';
                 dibujarGraficos(data.data);
-                cargarPorVerificar(); // <-- ESTA LÍNEA ES CLAVE
+                cargarPorVerificar();
+                cargarGraficoBicolor(); // <-- ESTA LÍNEA ES LA NUEVA
             }
         }
     });
     updateDashboardView();
-        // Añadir esta línea al final de cargarDashboard
-    cargarGraficoBicolor();
 }
 
 function cargarPorVerificar() {
