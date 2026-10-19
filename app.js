@@ -641,7 +641,7 @@ function cargarGraficoBicolor() {
                 }
             };
 
-            window.chartTorta = new Chart(ctx2, {
+                      window.chartTorta = new Chart(ctx2, {
                 type: 'doughnut',
                 data: {
                     labels: ['Logrado', 'Faltante'],
@@ -669,3 +669,145 @@ function cargarGraficoBicolor() {
                 },
                 plugins: [pluginTextoTorta] // Activar el plugin de la torta
             });
+} // <--- ESTA LLAVE FALTABA, ES PARA CERRAR cargarGraficoBicolor()
+
+// --- FUNCIÓN PARA DIBUJAR EL GRÁFICO DE SEDE CENTRAL ---
+function cargarGraficoSedeCentral() {
+    enviarAScript({ accion: 'obtenerEstadisticasSedeCentral', token: currentToken }, function(res) {
+        if (res.ok) {
+            document.getElementById('sede-central-container').style.display = 'block';
+            
+            const direcciones = Object.keys(res.data.padronPorDireccion).sort();
+            const metas = direcciones.map(d => res.data.padronPorDireccion[d]);
+            const logros = direcciones.map(d => res.data.votosPorDireccion[d] || 0);
+            const faltantes = direcciones.map((e, i) => Math.max(0, metas[i] - logros[i]));
+
+            // --- 1. GRÁFICO DE BARRAS ---
+            const canvas1 = document.getElementById('chartSedeCentralBarras');
+            const ctx1 = canvas1.getContext('2d');
+
+            if (window.chartSedeCentralBarras) window.chartSedeCentralBarras.destroy();
+            
+            const pluginTextos = {
+                id: 'textosSobreBarrasSede',
+                afterDatasetsDraw(chart) {
+                    const { ctx } = chart;
+                    ctx.save();
+                    ctx.font = 'bold 10px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'bottom';
+
+                    const metaData = chart.getDatasetMeta(1);
+                    metaData.data.forEach((barra, index) => {
+                        const metaTotal = metas[index];
+                        const logroTotal = logros[index];
+                        const pct = metaTotal > 0 ? ((logroTotal / metaTotal) * 100).toFixed(1) : 0;
+                        
+                        ctx.fillStyle = '#000';
+                        ctx.fillText(`${pct}%`, barra.x, barra.y - 5);
+                    });
+                    ctx.restore();
+                }
+            };
+
+            window.chartSedeCentralBarras = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: direcciones,
+                    datasets: [
+                        { label: 'Votos (Logrado)', data: logros, backgroundColor: '#28a745', borderWidth: 0 },
+                        { label: 'Faltante (Meta)', data: faltantes, backgroundColor: '#dc3545', borderWidth: 0 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: { padding: { top: 20 } },
+                    scales: {
+                        x: { stacked: true, ticks: { maxRotation: 90, minRotation: 45, font: { size: 10 } } },
+                        y: { stacked: true, beginAtZero: true }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const index = context.dataIndex;
+                                    const meta = metas[index];
+                                    const logro = logros[index];
+                                    const pct = meta > 0 ? ((logro / meta) * 100).toFixed(1) : 0;
+                                    if (context.datasetIndex === 0) return `Logrado: ${logro} (${pct}%)`;
+                                    return `Falta: ${meta - logro} (${(100 - pct).toFixed(1)}%)`;
+                                }
+                            }
+                        }
+                    }
+                },
+                plugins: [pluginTextos]
+            });
+
+            // --- 2. GRÁFICO DE TORTA ---
+            const totalMetaGlobal = metas.reduce((a, b) => a + b, 0);
+            const totalLogroGlobal = logros.reduce((a, b) => a + b, 0);
+            const faltanteGlobal = Math.max(0, totalMetaGlobal - totalLogroGlobal);
+            
+            const canvas2 = document.getElementById('chartSedeCentralTorta');
+            const ctx2 = canvas2.getContext('2d');
+
+            if (window.chartSedeCentralTorta) window.chartSedeCentralTorta.destroy();
+
+            const pluginTextoTorta = {
+                id: 'textoTortaSede',
+                afterDatasetsDraw(chart) {
+                    const { ctx } = chart;
+                    ctx.save();
+                    ctx.font = 'bold 12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillStyle = '#fff';
+                    
+                    const meta = chart.getDatasetMeta(0);
+                    meta.data.forEach((elemento, index) => {
+                        const valor = chart.data.datasets[0].data[index];
+                        const pct = ((valor / totalMetaGlobal) * 100).toFixed(1);
+                        const posicion = elemento.tooltipPosition();
+                        
+                        if (parseFloat(pct) > 5) {
+                            ctx.fillText(`${valor}`, posicion.x, posicion.y - 8);
+                            ctx.fillText(`${pct}%`, posicion.x, posicion.y + 8);
+                        }
+                    });
+                    ctx.restore();
+                }
+            };
+
+            window.chartSedeCentralTorta = new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Logrado', 'Faltante'],
+                    datasets: [{
+                        data: [totalLogroGlobal, faltanteGlobal],
+                        backgroundColor: ['#28a745', '#dc3545'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const val = context.raw;
+                                    const pct = ((val / totalMetaGlobal) * 100).toFixed(1);
+                                    return `${context.label}: ${val} (${pct}%)`;
+                                }
+                            }
+                        }
+                    }
+                },
+                plugins: [pluginTextoTorta]
+            });
+        }
+    });
+}
