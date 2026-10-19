@@ -553,9 +553,9 @@ function cargarGraficoBicolor() {
                         const logroTotal = logros[index];
                         const pct = metaTotal > 0 ? ((logroTotal / metaTotal) * 100).toFixed(1) : 0;
                         
-                        ctx.fillStyle = '#000';
-                        // Pintamos "Logrado (Porcentaje)" justo arriba de la barra
-                        ctx.fillText(`${logroTotal} (${pct}%)`, barra.x, barra.y - 5);
+                     ctx.fillStyle = '#000';
+                        // Mostramos: Logrado de Meta (Porcentaje)
+                        ctx.fillText(`${logroTotal} de ${metaTotal} (${pct}%)`, barra.x, barra.y - 5);
                     });
                     ctx.restore();
                 }
