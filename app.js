@@ -1,4 +1,4 @@
-const API_URL = 'https://blue-river-9145.ipostel-monitor.workers.dev';
+const API_URL = 'https://blue-river-9145.ipostel-monitor.workers.dev/';
 let currentUser = null;
 let currentToken = null;
 let chartEstados = null;
