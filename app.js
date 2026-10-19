@@ -525,18 +525,8 @@ function cargarGraficoBicolor() {
             document.getElementById('bicolor-container').style.display = 'block';
             
             const estados = Object.keys(res.data.padronPorEstado).sort();
-            
-            // Datos para las barras
             const metas = estados.map(e => res.data.padronPorEstado[e]);
             const logros = estados.map(e => res.data.votosPorEstado[e] || 0);
-            
-            // Porcentajes y cantidades para mostrar en las etiquetas (tooltips)
-            const etiquetasInfo = estados.map(e => {
-                const meta = res.data.padronPorEstado[e];
-                const logro = res.data.votosPorEstado[e] || 0;
-                const pct = meta > 0 ? ((logro / meta) * 100).toFixed(1) : 0;
-                return `Logrado: ${logro} (${pct}%) | Meta: ${meta}`;
-            });
 
             const canvas = document.getElementById('chartBicolorEstados');
             const ctx = canvas.getContext('2d');
@@ -555,8 +545,8 @@ function cargarGraficoBicolor() {
                             borderWidth: 0
                         },
                         {
-                            label: 'Meta (Padrón)',
-                            data: estados.map((e, i) => metas[i] - logros[i]), // Solo la diferencia para que quede apilado
+                            label: 'Faltante (Meta)',
+                            data: estados.map((e, i) => Math.max(0, metas[i] - logros[i])), 
                             backgroundColor: '#dc3545', // Rojo
                             borderWidth: 0
                         }
@@ -573,14 +563,22 @@ function cargarGraficoBicolor() {
                         tooltip: {
                             callbacks: {
                                 label: function(context) {
-                                    if (context.datasetIndex === 1) return null; // Ocultar la barra roja en el tooltip
-                                    return etiquetasInfo[context.dataIndex]; // Mostrar texto personalizado
+                                    const index = context.dataIndex;
+                                    const meta = metas[index];
+                                    const logro = logros[index];
+                                    const pct = meta > 0 ? ((logro / meta) * 100).toFixed(1) : 0;
+                                    
+                                    if (context.datasetIndex === 1) {
+                                        const faltante = meta - logro;
+                                        return `Falta: ${faltante} (${(100 - pct).toFixed(1)}%)`;
+                                    }
+                                    return `Logrado: ${logro} (${pct}% de ${meta})`;
                                 }
                             }
                         },
                         legend: {
                             labels: {
-                                generateLabels: function(chart) {
+                                generateLabels: function() {
                                     return [
                                         { text: 'Votos (Logrado)', fillStyle: '#28a745', strokeStyle: '#28a745' },
                                         { text: 'Faltante (Meta)', fillStyle: '#dc3545', strokeStyle: '#dc3545' }
