@@ -199,9 +199,12 @@
         </div>
         
         <!-- Gráfico de Torta (Derecha) -->
-        <div style="flex: 1; min-width: 250px; position: relative; height: 450px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+        <div style="flex: 1; min-width: 250px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
             <h4 style="text-align:center; color:#0033A0; margin-bottom:10px;">Alcance Global</h4>
-            <canvas id="chartTortaGlobal"></canvas>
+            <!-- Forzamos un contenedor cuadrado para que la torta no se aplaste -->
+            <div style="position: relative; width: 250px; height: 250px;">
+                <canvas id="chartTortaGlobal"></canvas>
+            </div>
         </div>
     </div>
 </div>
