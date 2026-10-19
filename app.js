@@ -606,7 +606,7 @@ function cargarGraficoBicolor() {
                 plugins: [pluginTextos]
             });
 
-            // --- 2. GRÁFICO DE TORTA GLOBAL ---
+                        // --- 2. GRÁFICO DE TORTA GLOBAL ---
             const totalMetaGlobal = metas.reduce((a, b) => a + b, 0);
             const totalLogroGlobal = logros.reduce((a, b) => a + b, 0);
             const faltanteGlobal = Math.max(0, totalMetaGlobal - totalLogroGlobal);
@@ -615,6 +615,31 @@ function cargarGraficoBicolor() {
             const ctx2 = canvas2.getContext('2d');
 
             if (window.chartTorta) window.chartTorta.destroy();
+
+            // Plugin para escribir los números en el centro de la torta
+            const pluginTextoTorta = {
+                id: 'textoTorta',
+                afterDatasetsDraw(chart) {
+                    const { ctx } = chart;
+                    ctx.save();
+                    ctx.font = 'bold 12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillStyle = '#fff'; // Texto blanco para que resalte
+                    
+                    const meta = chart.getDatasetMeta(0);
+                    meta.data.forEach((elemento, index) => {
+                        const valor = chart.data.datasets[0].data[index];
+                        const pct = ((valor / totalMetaGlobal) * 100).toFixed(1);
+                        
+                        // Calculamos la posición del texto
+                        const posicion = elemento.tooltipPosition();
+                        ctx.fillText(`${valor}`, posicion.x, posicion.y - 8);
+                        ctx.fillText(`${pct}%`, posicion.x, posicion.y + 8);
+                    });
+                    ctx.restore();
+                }
+            };
 
             window.chartTorta = new Chart(ctx2, {
                 type: 'doughnut',
@@ -641,8 +666,6 @@ function cargarGraficoBicolor() {
                             }
                         }
                     }
-                }
+                },
+                plugins: [pluginTextoTorta] // Activar el plugin de la torta
             });
-        }
-    });
-}
