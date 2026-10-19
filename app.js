@@ -529,13 +529,12 @@ function cargarGraficoBicolor() {
             const logros = estados.map(e => res.data.votosPorEstado[e] || 0);
             const faltantes = estados.map((e, i) => Math.max(0, metas[i] - logros[i]));
 
-            // --- 1. GRÁFICO DE BARRAS ---
+            // --- 1. GRÁFICO DE BARRAS (Solo Porcentajes) ---
             const canvas1 = document.getElementById('chartBicolorEstados');
             const ctx1 = canvas1.getContext('2d');
 
             if (window.chartBicolor) window.chartBicolor.destroy();
             
-            // Plugin para dibujar texto sobre las barras (se registra globalmente para que funcione)
             const pluginTextos = {
                 id: 'textosSobreBarras',
                 afterDatasetsDraw(chart) {
@@ -545,7 +544,6 @@ function cargarGraficoBicolor() {
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'bottom';
 
-                    // El dataset 1 es el rojo (la suma total de la barra)
                     const metaData = chart.getDatasetMeta(1);
                     
                     metaData.data.forEach((barra, index) => {
@@ -554,11 +552,8 @@ function cargarGraficoBicolor() {
                         const pct = metaTotal > 0 ? ((logroTotal / metaTotal) * 100).toFixed(1) : 0;
                         
                         ctx.fillStyle = '#000';
-                        ctx.fillText(`${logroTotal} (${pct}%)`, barra.x, barra.y - 16);
-                        ctx.font = 'normal 10px Arial';
-                        ctx.fillStyle = '#666';
-                        ctx.fillText(`Meta: ${metaTotal}`, barra.x, barra.y - 4);
-                        ctx.font = 'bold 11px Arial'; // Restauramos la fuente
+                        // SOLO EL PORCENTAJE
+                        ctx.fillText(`${pct}%`, barra.x, barra.y - 5);
                     });
                     ctx.restore();
                 }
@@ -586,7 +581,7 @@ function cargarGraficoBicolor() {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    layout: { padding: { top: 25 } }, // Espacio para el texto
+                    layout: { padding: { top: 20 } },
                     scales: {
                         x: { stacked: true, ticks: { maxRotation: 90, minRotation: 45 } },
                         y: { stacked: true, beginAtZero: true }
@@ -606,10 +601,10 @@ function cargarGraficoBicolor() {
                         }
                     }
                 },
-                plugins: [pluginTextos] // Activar el plugin
+                plugins: [pluginTextos]
             });
 
-            // --- 2. GRÁFICO DE TORTA GLOBAL ---
+            // --- 2. GRÁFICO DE TORTA GLOBAL (Se mantiene con cantidades y %) ---
             const totalMetaGlobal = metas.reduce((a, b) => a + b, 0);
             const totalLogroGlobal = logros.reduce((a, b) => a + b, 0);
             const faltanteGlobal = Math.max(0, totalMetaGlobal - totalLogroGlobal);
@@ -639,6 +634,7 @@ function cargarGraficoBicolor() {
                                 label: function(context) {
                                     const val = context.raw;
                                     const pct = ((val / totalMetaGlobal) * 100).toFixed(1);
+                                    // Aquí se mantiene la cantidad y el porcentaje
                                     return `${context.label}: ${val} (${pct}%)`;
                                 }
                             }
