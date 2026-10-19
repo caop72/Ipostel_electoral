@@ -1,108 +1,28 @@
-// --- VARIABLES GLOBALES ---
-let currentToken = null;
+const API_URL = 'https://blue-river-9145.ipostel-monitor.workers.dev';
 let currentUser = null;
-let API_URL = 'https://script.google.com/macros/s/AKfycbw.../exec'; // <--- VERIFICA QUE ESTA URL SEA LA TUYA
-// --- LÓGICA DE LOGIN Y SESIÓN ---
-
-function switchTab(tabName) {
-    document.querySelectorAll('.login-form').forEach(f => f.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    
-    if(tabName === 'altos-cargos') document.getElementById('form-altos').classList.add('active');
-    else if(tabName === 'directores') document.getElementById('form-directores').classList.add('active');
-    else if(tabName === 'gerentes') document.getElementById('form-gerentes').classList.add('active');
-    else if(tabName === 'jefes-opt') document.getElementById('form-jefes-opt').classList.add('active');
-    
-    if(event && event.target) event.target.classList.add('active');
-}
-
-function handleLogin(event, tipo) {
-    event.preventDefault();
-    
-    let datos = { accion: 'login' };
-    
-    if (tipo === 'altos') {
-        datos.rol = document.getElementById('rol-alto').value;
-        datos.clave = document.getElementById('pass-alto').value;
-        datos.correo = 'altos@ipostel.gob.ve'; // Correo ficticio para altos cargos
-    } else if (tipo === 'director') {
-        datos.rol = 'DIRECTOR';
-        datos.estado = document.getElementById('rol-director').value;
-        datos.correo = document.getElementById('correo-director').value;
-        datos.clave = document.getElementById('pass-director').value;
-    } else if (tipo === 'gerente') {
-        datos.rol = 'GERENTE_ESTADO';
-        datos.estado = document.getElementById('estado-gerente').value;
-        datos.clave = document.getElementById('pass-gerente').value;
-    } else if (tipo === 'opt') {
-        datos.rol = 'JEFE_OPT';
-        datos.estado = document.getElementById('opt-seleccion').value;
-        datos.clave = document.getElementById('pass-opt').value;
-    }
-    
-    if (!datos.clave) {
-        alert("Por favor, ingrese su clave.");
-        return;
-    }
-
-    // Enviar al backend
-    enviarAScript(datos, function(res) {
-        if (res.ok) {
-            currentToken = res.token;
-            currentUser = res.usuario;
-            
-            // Si requiere cambio de contraseña
-            if (res.requiereCambio) {
-                document.getElementById('login-screen').classList.remove('active');
-                document.getElementById('change-pass-screen').classList.add('active');
-                return;
-            }
-
-            entrarAlDashboard();
-        } else {
-            alert("Error: " + res.error);
-        }
-    });
-}
-
-function handleChangePass(event) {
-    event.preventDefault();
-    const newPass = document.getElementById('new-pass').value;
-    
-    enviarAScript({ accion: 'cambiarClave', token: currentToken, nuevaClave: newPass }, function(res) {
-        if (res.ok) {
-            alert("Contraseña actualizada correctamente.");
-            entrarAlDashboard();
-        } else {
-            alert("Error al cambiar contraseña: " + res.error);
-        }
-    });
-}
-
-function entrarAlDashboard() {
-    document.getElementById('login-screen').classList.remove('active');
-    document.getElementById('change-pass-screen').classList.remove('active');
-    document.getElementById('dashboard-screen').classList.add('active');
-    
-    if(document.getElementById('user-name-display')) {
-        document.getElementById('user-name-display').textContent = (currentUser.nombre || currentUser.rol) + ' | ' + (currentUser.estado || 'Nacional');
-    }
-    
-    // Cargar gráficos y datos
-    cargarDashboard();
-}
-
-function logout() {
-    currentToken = null;
-    currentUser = null;
-    document.getElementById('dashboard-screen').classList.remove('active');
-    document.getElementById('login-screen').classList.add('active');
-}
+let currentToken = null;
 let chartEstados = null;
 let chartDirecciones = null;
 let chartHoras = null;
 
-// --- FUNCIONES DE CONEXIÓN ---
+const mapaDirectores = {
+    'CAPITAL': ['DISTRITO CAPITAL', 'MIRANDA', 'LA GUAIRA'],
+    'LARA': ['LARA'],
+    'ZULIA': ['ZULIA'],
+    'CARABOBO_SUCRE': ['CARABOBO', 'SUCRE'],
+    'ARAGUA': ['ARAGUA'],
+    'TRUJILLO_FALCON': ['TRUJILLO', 'FALCON'],
+    'MONAGAS_DELTA': ['MONAGAS', 'DELTA AMACURO'],
+    'BOLIVAR': ['BOLÍVAR'],
+    'TACHIRA_MERIDA': ['TÁCHIRA', 'MÉRIDA'],
+    'BARINAS': ['BARINAS'],
+    'COJEDES': ['COJEDES'],
+    'APURE_AMAZONAS': ['APURE', 'AMAZONAS'],
+    'PORTUGUESA_NUEVA_ESPARTA': ['PORTUGUESA', 'NUEVA ESPARTA'],
+    'ANZOATEGUI': ['ANZOÁTEGUI'],
+    'GUARICO_YARACUY': ['GUÁRICO', 'YARACUY']
+};
+
 function enviarAScript(datos, callback) {
     fetch(API_URL, {
         method: 'POST',
@@ -114,7 +34,123 @@ function enviarAScript(datos, callback) {
     .catch(err => callback({ ok: false, error: 'Error de conexión: ' + err.message }));
 }
 
-// --- DASHBOARD Y ESTADÍSTICAS ---
+function showScreen(screenId) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(screenId).classList.add('active');
+}
+
+function switchTab(tabName) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    if (event && event.target) event.target.classList.add('active');
+    document.querySelectorAll('.login-form').forEach(f => f.classList.remove('active'));
+    let formId = '';
+    if (tabName === 'altos-cargos') formId = 'form-altos';
+    else if (tabName === 'directores') formId = 'form-directores';
+    else if (tabName === 'gerentes') formId = 'form-gerentes';
+    else if (tabName === 'jefes-opt') formId = 'form-jefes-opt';
+    document.getElementById(formId).classList.add('active');
+    if (tabName === 'gerentes') cargarEstadosParaGerente();
+    if (tabName === 'jefes-opt') cargarEstadosParaOPT();
+}
+
+function cargarEstadosParaGerente() {
+    const select = document.getElementById('estado-gerente');
+    if (select.options.length > 1) return;
+    const estados = ['DISTRITO CAPITAL', 'MIRANDA', 'LA GUAIRA', 'LARA', 'ZULIA', 'CARABOBO', 'SUCRE', 'ARAGUA', 'TRUJILLO', 'FALCON', 'MONAGAS', 'DELTA AMACURO', 'BOLÍVAR', 'TÁCHIRA', 'MÉRIDA', 'BARINAS', 'COJEDES', 'APURE', 'AMAZONAS', 'PORTUGUESA', 'NUEVA ESPARTA', 'ANZOÁTEGUI', 'GUÁRICO', 'YARACUY'];
+    estados.forEach(e => { let o = document.createElement('option'); o.value = e; o.textContent = e; select.appendChild(o); });
+}
+
+function cargarEstadosParaOPT() {
+    const select = document.getElementById('estado-opt');
+    if (select.options.length > 1) return;
+    const estados = ['DISTRITO CAPITAL', 'MIRANDA', 'LA GUAIRA', 'LARA', 'ZULIA', 'CARABOBO', 'SUCRE', 'ARAGUA', 'TRUJILLO', 'FALCON', 'MONAGAS', 'DELTA AMACURO', 'BOLÍVAR', 'TÁCHIRA', 'MÉRIDA', 'BARINAS', 'COJEDES', 'APURE', 'AMAZONAS', 'PORTUGUESA', 'NUEVA ESPARTA', 'ANZOÁTEGUI', 'GUÁRICO', 'YARACUY'];
+    estados.forEach(e => { let o = document.createElement('option'); o.value = e; o.textContent = e; select.appendChild(o); });
+}
+
+function cargarOptsPorEstado() {
+    const estado = document.getElementById('estado-opt').value;
+    const selectOpt = document.getElementById('opt-seleccion');
+    selectOpt.innerHTML = '<option value="">-- Cargando OPTs... --</option>';
+    if (!estado) {
+        selectOpt.innerHTML = '<option value="">-- Primero seleccione un Estado --</option>';
+        return;
+    }
+    enviarAScript({ accion: 'obtenerOptsPorEstado', estado: estado }, function(data) {
+        if (data.ok && data.data && data.data.length > 0) {
+            selectOpt.innerHTML = '<option value="">-- Seleccione su OPT --</option>';
+            data.data.forEach(opt => {
+                let o = document.createElement('option');
+                o.value = opt;
+                o.textContent = opt;
+                selectOpt.appendChild(o);
+            });
+        } else {
+            selectOpt.innerHTML = '<option value="">-- No hay OPTs en este Estado --</option>';
+        }
+    });
+}
+
+function handleLogin(event, tipo) {
+    event.preventDefault();
+    let payload = { accion: 'login', tipo: tipo };
+    if (tipo === 'altos') {
+        payload.rol = document.getElementById('rol-alto').value;
+        payload.clave = document.getElementById('pass-alto').value;
+    } else if (tipo === 'director') {
+        payload.rol = document.getElementById('rol-director').value;
+        payload.correo = document.getElementById('correo-director').value;
+        payload.clave = document.getElementById('pass-director').value;
+    } else if (tipo === 'gerente') {
+        payload.rol = document.getElementById('estado-gerente').value;
+        payload.clave = document.getElementById('pass-gerente').value;
+    } else if (tipo === 'opt') {
+        payload.rol = document.getElementById('opt-seleccion').value;
+        payload.clave = document.getElementById('pass-opt').value;
+    }
+    enviarAScript(payload, function(data) {
+        if (data.ok && data.requiereCambio) {
+            currentUser = { rol: payload.rol, nombre: payload.correo || payload.rol, estado: payload.rol };
+            currentUser.correo = data.correo || payload.correo;
+            showScreen('change-pass-screen');
+        } else if (data.ok) {
+            currentToken = data.token;
+            currentUser = data.usuario;
+            loginSuccess();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    });
+}
+
+function handleChangePass(event) {
+    event.preventDefault();
+    const newPass = document.getElementById('new-pass').value;
+    if (newPass.length === 4 && !isNaN(newPass)) {
+        enviarAScript({ accion: 'cambiarClave', correo: currentUser.correo, nuevaClave: newPass }, function(data) {
+            if (data.ok) {
+                alert('Clave guardada correctamente.');
+                let loginPayload = { accion: 'login', tipo: currentUser.rol === 'DIRECTOR' ? 'director' : (currentUser.rol === 'JEFE_OPT' ? 'opt' : (currentUser.rol === 'GERENTE_ESTADO' ? 'gerente' : 'altos')), correo: currentUser.correo, rol: currentUser.estado, clave: newPass };
+                enviarAScript(loginPayload, function(data2) {
+                    if (data2.ok) { currentToken = data2.token; currentUser = data2.usuario; loginSuccess(); }
+                    else { alert('Error al iniciar sesión.'); logout(); }
+                });
+            } else { alert('Error al guardar clave: ' + data.error); }
+        });
+    } else { alert('La clave debe tener 4 dígitos.'); }
+}
+
+function loginSuccess() {
+    document.getElementById('user-name-display').textContent = currentUser.nombre;
+    showScreen('dashboard-screen');
+    cargarDashboard();
+}
+
+function logout() {
+    currentUser = null; currentToken = null;
+    document.getElementById('new-pass').value = '';
+    showScreen('login-screen');
+}
+
 function cargarDashboard() {
     enviarAScript({ accion: 'obtenerEstadisticas', token: currentToken }, function(data) {
         if (data.ok) {
@@ -127,10 +163,8 @@ function cargarDashboard() {
             if (currentUser.rol !== 'JEFE_OPT') {
                 document.getElementById('charts-container').style.display = 'block';
                 dibujarGraficos(data.data);
-                cargarPorVerificar(); 
+                cargarPorVerificar(); // <-- ESTA LÍNEA ES CLAVE
             }
-        } else {
-            console.error("Error al obtener estadísticas:", data.error);
         }
     });
     updateDashboardView();
@@ -141,7 +175,7 @@ function cargarPorVerificar() {
         const container = document.getElementById('por-verificar-container');
         const tbody = document.getElementById('tbody-por-verificar');
         
-        if (data.ok && data.data && data.data.length > 0) {
+        if (data.ok && data.data.length > 0) {
             container.style.display = 'block';
             tbody.innerHTML = '';
             data.data.forEach(item => {
@@ -161,10 +195,8 @@ function cargarPorVerificar() {
 }
 
 function dibujarGraficos(data) {
-    console.log("Datos recibidos:", data); // Para depurar en la consola (F12)
-
-    // --- Gráfico 1: Participación por Estado ---
-    const estados = Object.keys(data.padronPorEstado || {}).sort();
+    // Gráfico 1: % de Participación por Estado
+    const estados = Object.keys(data.padronPorEstado).sort();
     const participacionData = estados.map(e => {
         const padron = data.padronPorEstado[e] || 0;
         const votos = data.votosPorEstado[e] || 0;
@@ -172,90 +204,63 @@ function dibujarGraficos(data) {
     });
     
     if (chartEstados) chartEstados.destroy();
-    const canvas1 = document.getElementById('chartEstados');
-    if (canvas1) {
-        // Forzamos la altura por si el HTML no la tiene
-        canvas1.parentElement.style.height = '400px'; 
-        const ctx1 = canvas1.getContext('2d');
-        chartEstados = new Chart(ctx1, {
-            type: 'bar',
-            data: { 
-                labels: estados.length > 0 ? estados : ['Sin datos'], 
-                datasets: [{
-                    label: '% Participación',
-                    data: participacionData.length > 0 ? participacionData : [0],
-                    backgroundColor: 'rgba(200, 16, 46, 0.8)'
-                }]
-            },
-            options: { 
-                responsive: true, 
-                maintainAspectRatio: false,
-                scales: { 
-                    y: { beginAtZero: true, max: 100, ticks: { callback: function(value) { return value + '%'; } } },
-                    x: { ticks: { maxRotation: 90, minRotation: 45 } }
-                }
-            }
-        });
-    }
+    const ctx1 = document.getElementById('chartEstados').getContext('2d');
+    chartEstados = new Chart(ctx1, {
+        type: 'bar',
+        data: { 
+            labels: estados, 
+            datasets: [{
+                label: '% Participación',
+                data: participacionData,
+                backgroundColor: 'rgba(200, 16, 46, 0.8)'
+            }]
+        },
+        options: { 
+            responsive: true, 
+            scales: { 
+                y: { 
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: { callback: function(value) { return value + '%'; } }
+                } 
+            } 
+        }
+    });
     
-    // --- Gráfico 2: Avance por Dirección ---
-    const direcciones = Object.keys(data.padronPorDireccion || {}).sort();
+    // Gráfico 2: Por Dirección
+    const direcciones = Object.keys(data.padronPorDireccion).sort();
     const padronDirData = direcciones.map(d => data.padronPorDireccion[d] || 0);
     const votosDirData = direcciones.map(d => data.votosPorDireccion[d] || 0);
     
     if (chartDirecciones) chartDirecciones.destroy();
-    const canvas2 = document.getElementById('chartDirecciones');
-    if (canvas2) {
-        canvas2.parentElement.style.height = '400px';
-        const ctx2 = canvas2.getContext('2d');
-        chartDirecciones = new Chart(ctx2, {
-            type: 'bar',
-            data: { 
-                labels: direcciones.length > 0 ? direcciones : ['Sin datos'], 
-                datasets: [
-                    { label: 'Padrón', data: padronDirData.length > 0 ? padronDirData : [0], backgroundColor: 'rgba(0, 51, 160, 0.5)' },
-                    { label: 'Votos', data: votosDirData.length > 0 ? votosDirData : [0], backgroundColor: 'rgba(200, 16, 46, 0.8)' }
-                ]
-            },
-            options: { 
-                responsive: true, 
-                maintainAspectRatio: false,
-                scales: { 
-                    y: { beginAtZero: true },
-                    x: { ticks: { maxRotation: 90, minRotation: 45 } }
-                }
-            }
-        });
-    }
+    const ctx2 = document.getElementById('chartDirecciones').getContext('2d');
+    chartDirecciones = new Chart(ctx2, {
+        type: 'bar',
+        data: { labels: direcciones, datasets: [
+            { label: 'Padrón', data: padronDirData, backgroundColor: 'rgba(0, 51, 160, 0.5)' },
+            { label: 'Votos', data: votosDirData, backgroundColor: 'rgba(200, 16, 46, 0.8)' }
+        ]},
+        options: { responsive: true, scales: { y: { beginAtZero: true } } }
+    });
     
-    // --- Gráfico 3: Curva por Hora ---
-    const horas = Object.keys(data.votosPorHora || {}).sort();
+    // Gráfico 3: Curva por Hora
+    const horas = Object.keys(data.votosPorHora).sort();
     const votosHora = horas.map(h => data.votosPorHora[h]);
     
     if (chartHoras) chartHoras.destroy();
-    const canvas3 = document.getElementById('chartHoras');
-    if (canvas3) {
-        canvas3.parentElement.style.height = '300px';
-        const ctx3 = canvas3.getContext('2d');
-        chartHoras = new Chart(ctx3, {
-            type: 'line',
-            data: { 
-                labels: horas.length > 0 ? horas : ['Sin datos'], 
-                datasets: [{
-                    label: 'Votos por Hora', data: votosHora.length > 0 ? votosHora : [0],
-                    borderColor: 'rgba(200, 16, 46, 1)', backgroundColor: 'rgba(200, 16, 46, 0.2)',
-                    fill: true, tension: 0.4
-                }]
-            },
-            options: { responsive: true, maintainAspectRatio: false }
-        });
-    }
+    const ctx3 = document.getElementById('chartHoras').getContext('2d');
+    chartHoras = new Chart(ctx3, {
+        type: 'line',
+        data: { labels: horas, datasets: [{
+            label: 'Votos por Hora', data: votosHora,
+            borderColor: 'rgba(200, 16, 46, 1)', backgroundColor: 'rgba(200, 16, 46, 0.2)',
+            fill: true, tension: 0.4
+        }]},
+        options: { responsive: true, scales: { y: { beginAtZero: true } } }
+    });
 }
-
 function updateDashboardView() {
     const contentDiv = document.getElementById('role-content');
-    if (!contentDiv) return;
-    
     if (currentUser.rol === 'DIRECTOR') {
         contentDiv.innerHTML = `
             <h3 style="margin-bottom:15px; color:#0033A0; text-align:center;">Panel de Director</h3>
@@ -344,7 +349,171 @@ function abrirModalCargaLote() {
     document.body.insertAdjacentHTML('beforeend', modalHTML);
 }
 
-function cerrarModal(id) {
-    const modal = document.getElementById(id);
+function procesarLote() {
+    const texto = document.getElementById('lote-cedulas').value;
+    // Separar por comas o saltos de línea, y limpiar espacios en blanco
+    const cedulas = texto.split(/[\n,]+/).map(c => c.trim()).filter(c => c.length > 0);
+    
+    if (cedulas.length === 0) { alert("No hay cédulas para procesar."); return; }
+    
+    let errores = [];
+    let exitos = 0;
+    let procesadas = 0;
+    
+    function procesarSiguiente(index) {
+        if (index >= cedulas.length) {
+            // Al terminar, mostrar resumen
+            alert(`Lote procesado: ${exitos} exitosos, ${errores.length} errores.\n\nErrores:\n${errores.join('\n')}`);
+            cerrarModal('modal-lote');
+            cargarDashboard();
+            return;
+        }
+        
+        const cedula = cedulas[index];
+        
+        enviarAScript({ 
+            accion: 'cargarVoto', 
+            token: currentToken, 
+            cedula_votante: cedula, 
+            nombre_votante: '', 
+            commit_novedad: '', 
+            foto_url: '' 
+        }, function(data) {
+            if (data.ok) {
+                exitos++;
+            } else {
+                // Si la cédula no está en el padrón, se registra como error pero se continúa
+                errores.push(cedula + ': ' + data.error);
+            }
+            procesarSiguiente(index + 1);
+        });
+    }
+    
+    procesarSiguiente(0);
+}
+
+function abrirModalNovedades() {
+    let modalHTML = `
+        <div id="modal-novedades" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center; z-index:1000;">
+            <div style="background:white; padding:20px; border-radius:10px; width:95%; max-width:800px; max-height:90vh; overflow-y:auto;">
+                <h3 style="margin-bottom:15px; color:#dc3545;">Gestión de Novedades</h3>
+                <table style="width:100%; border-collapse:collapse; font-size:12px;" id="tabla-novedades">
+                    <thead><tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">Cédula</th><th style="padding:5px; border:1px solid #ddd;">Nombre</th><th style="padding:5px; border:1px solid #ddd;">Reportado Por</th><th style="padding:5px; border:1px solid #ddd;">Commit</th><th style="padding:5px; border:1px solid #ddd;">Acciones</th></tr></thead>
+                    <tbody id="tbody-novedades"><tr><td colspan="5" style="text-align:center; padding:10px;">Cargando...</td></tr></tbody>
+                </table>
+                <button onclick="cerrarModal('modal-novedades')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button>
+            </div>
+        </div>`;
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    cargarNovedades();
+}
+
+function cargarNovedades() {
+    enviarAScript({ accion: 'obtenerNovedades', token: currentToken }, function(data) {
+        const tbody = document.getElementById('tbody-novedades');
+        if (data.ok && data.data.length > 0) {
+            tbody.innerHTML = '';
+            data.data.forEach(n => {
+                let tr = document.createElement('tr');
+                tr.innerHTML = `<td style="padding:5px; border:1px solid #ddd;">${n.cedula}</td><td style="padding:5px; border:1px solid #ddd;">${n.nombre}</td><td style="padding:5px; border:1px solid #ddd;">${n.reportadoPor}</td><td style="padding:5px; border:1px solid #ddd;">${n.commit}</td><td style="padding:5px; border:1px solid #ddd;"><button onclick="gestionarNovedad(${n.fila}, 'VALIDAR')" style="background:#28a745; color:white; border:none; padding:5px; border-radius:3px; cursor:pointer;">Validar</button><button onclick="gestionarNovedad(${n.fila}, 'INACTIVAR')" style="background:#dc3545; color:white; border:none; padding:5px; border-radius:3px; cursor:pointer;">Inactivar</button></td>`;
+                tbody.appendChild(tr);
+            });
+        } else { tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:10px;">No hay novedades pendientes.</td></tr>`; }
+    });
+}
+
+function gestionarNovedad(fila, accion) {
+    if (!confirm(`¿Está seguro de ${accion} esta novedad?`)) return;
+    enviarAScript({ accion: 'gestionarNovedad', token: currentToken, fila: fila, accionNovedad: accion }, function(data) {
+        if (data.ok) { alert(data.mensaje); cargarNovedades(); cargarDashboard(); }
+        else { alert("Error: " + data.error); }
+    });
+}
+
+function abrirModalGerentes() {
+    enviarAScript({ accion: 'obtenerGerentesPorDirector', token: currentToken }, function(data) {
+        let tabla = '<tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">Estado</th><th style="padding:5px; border:1px solid #ddd;">Clave</th></tr>';
+        if (data.ok && data.data.length > 0) {
+            data.data.forEach((estado, index) => {
+                const clave = String(1000 + index).slice(-4);
+                tabla += `<tr><td style="padding:5px; border:1px solid #ddd;">${estado}</td><td style="padding:5px; border:1px solid #ddd; font-weight:bold;">${clave}</td></tr>`;
+            });
+        } else {
+            tabla += '<tr><td colspan="2" style="text-align:center;">No hay estados asignados.</td></tr>';
+        }
+        let modalHTML = `<div id="modal-gerentes" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;"><div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:500px; max-height:80vh; overflow-y:auto;"><h3 style="margin-bottom:15px; color:#0033A0;">Gerentes de Estado y Claves</h3><p style="font-size:14px; margin-bottom:15px;">Entregue estas claves a sus Gerentes de Estado.</p><table style="width:100%; border-collapse:collapse; font-size:12px;">${tabla}</table><button onclick="cerrarModal('modal-gerentes')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button></div></div>`;
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+    });
+}
+
+function abrirModalOpts() {
+    enviarAScript({ accion: 'obtenerOptsPorEstado', token: currentToken, estado: currentUser.estado }, function(data) {
+        let tabla = '<tr style="background:#f0f0f0;"><th style="padding:5px; border:1px solid #ddd;">OPT</th><th style="padding:5px; border:1px solid #ddd;">Clave</th></tr>';
+        if (data.ok && data.data.length > 0) {
+            data.data.forEach((opt, index) => {
+                const clave = String(2000 + index).slice(-4);
+                tabla += `<tr><td style="padding:5px; border:1px solid #ddd;">${opt}</td><td style="padding:5px; border:1px solid #ddd; font-weight:bold;">${clave}</td></tr>`;
+            });
+        } else {
+            tabla += '<tr><td colspan="2" style="text-align:center;">No hay OPTs en este estado.</td></tr>';
+        }
+        let modalHTML = `<div id="modal-opts" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; justify-content:center; align-items:center; z-index:1000;"><div style="background:white; padding:20px; border-radius:10px; width:90%; max-width:500px; max-height:80vh; overflow-y:auto;"><h3 style="margin-bottom:15px; color:#0033A0;">OPTs de ${currentUser.estado}</h3><p style="font-size:14px; margin-bottom:15px;">Entregue estas claves a sus Jefes de OPT.</p><table style="width:100%; border-collapse:collapse; font-size:12px;">${tabla}</table><button onclick="cerrarModal('modal-opts')" style="width:100%; margin-top:15px; padding:10px; background:#ccc; border:none; border-radius:5px; cursor:pointer;">Cerrar</button></div></div>`;
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+    });
+}
+
+function buscarEnPadron() {
+    const cedula = document.getElementById('voto-cedula').value;
+    if (!cedula || cedula.length < 5) return;
+    enviarAScript({ accion: 'consultarPadron', token: currentToken, cedula: cedula }, function(data) {
+        const infoDiv = document.getElementById('info-padron');
+        const grupoNombre = document.getElementById('grupo-nombre');
+        const grupoCommit = document.getElementById('grupo-commit');
+        if (data.ok && data.encontrado) {
+            infoDiv.style.display = 'block';
+            document.getElementById('info-nombre').textContent = data.datos.nombre;
+            document.getElementById('info-cargo').textContent = data.datos.cargo;
+            document.getElementById('info-ubicacion').textContent = data.datos.ubicacion;
+            grupoNombre.style.display = 'none'; grupoCommit.style.display = 'none';
+        } else {
+            infoDiv.style.display = 'none'; grupoNombre.style.display = 'block'; grupoCommit.style.display = 'block';
+        }
+    });
+}
+
+function guardarVotoReal() {
+    const cedula = document.getElementById('voto-cedula').value;
+    const nombre = document.getElementById('voto-nombre').value;
+    const commit = document.getElementById('voto-commit').value;
+    const fotoInput = document.getElementById('voto-foto');
+    if (!cedula) { alert("Debe ingresar una cédula."); return; }
+    const enviarDatos = (fotoUrl) => {
+        enviarAScript({ accion: 'cargarVoto', token: currentToken, cedula_votante: cedula, nombre_votante: nombre, commit_novedad: commit, foto_url: fotoUrl }, function(data) {
+            if (data.ok) { alert("✅ " + data.mensaje); cerrarModal('modal-carga'); cargarDashboard(); }
+            else {
+                if (data.requiereCommit) {
+                    document.getElementById('grupo-nombre').style.display = 'block';
+                    document.getElementById('grupo-commit').style.display = 'block';
+                    alert("⚠️ " + data.error);
+                } else { alert("Error: " + data.error); }
+            }
+        });
+    };
+    if (fotoInput.files.length > 0) {
+        const file = fotoInput.files[0];
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const base64Data = e.target.result.split(',')[1];
+            enviarAScript({ accion: 'subirFoto', token: currentToken, base64: base64Data, nombre: 'voto_' + cedula + '.jpg' }, function(dataFoto) {
+                if (dataFoto.ok) enviarDatos(dataFoto.url);
+                else { alert("Error al subir foto: " + dataFoto.error); enviarDatos(''); }
+            });
+        };
+        reader.readAsDataURL(file);
+    } else { enviarDatos(''); }
+}
+
+function cerrarModal(idModal) {
+    const modal = document.getElementById(idModal);
     if (modal) modal.remove();
 }
