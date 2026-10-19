@@ -524,40 +524,76 @@ function cargarGraficoBicolor() {
         if (res.ok) {
             document.getElementById('bicolor-container').style.display = 'block';
             
+            // Ordenamos alfabéticamente los estados
             const estados = Object.keys(res.data.padronPorEstado).sort();
-            const metas = estados.map(e => res.data.padronPorEstado[e]);
+            
+            const metas = estados.map(e => res.data.padronPorEstado[e] || 0);
             const logros = estados.map(e => res.data.votosPorEstado[e] || 0);
+            const faltantes = metas.map((meta, i) => Math.max(0, meta - logros[i]));
 
             const canvas = document.getElementById('chartBicolorEstados');
             const ctx = canvas.getContext('2d');
 
             if (window.chartBicolor) window.chartBicolor.destroy();
             
+            // Plugin personalizado para escribir los textos sobre las barras
+            const pluginTextos = {
+                id: 'textosDentro',
+                afterDatasetsDraw(chart) {
+                    const { ctx } = chart;
+                    ctx.save();
+                    ctx.font = 'bold 10px Arial';
+                    ctx.textAlign = 'center';
+                    
+                    // Recorremos cada barra verde (Logrado)
+                    chart.data.datasets[0].meta.data.forEach((bar, index) => {
+                        const logro = logros[index];
+                        const meta = metas[index];
+                        const pct = meta > 0 ? ((logro / meta) * 100).toFixed(1) : 0;
+                        
+                        // Solo dibujar si la barra es lo suficientemente alta
+                        if (bar.height > 15 && logro > 0) {
+                            ctx.fillStyle = '#fff'; // Blanco para que contraste con el verde
+                            ctx.fillText(`${logro} (${pct}%)`, bar.x, bar.y + (bar.height / 2) + 4);
+                        }
+                    });
+                    ctx.restore();
+                }
+            };
+
             window.chartBicolor = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: estados,
                     datasets: [
                         {
-                            label: 'Logrado (Votos)',
+                            label: 'Votos (Logrado)',
                             data: logros,
                             backgroundColor: '#28a745', // Verde
                             borderWidth: 0
                         },
                         {
                             label: 'Faltante (Meta)',
-                            data: estados.map((e, i) => Math.max(0, metas[i] - logros[i])), 
+                            data: faltantes, 
                             backgroundColor: '#dc3545', // Rojo
                             borderWidth: 0
                         }
                     ]
                 },
+                plugins: [pluginTextos], // <-- Activamos el plugin de textos
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     scales: {
-                        x: { stacked: true, ticks: { maxRotation: 90, minRotation: 45 } },
-                        y: { stacked: true, beginAtZero: true }
+                        x: { 
+                            stacked: true, 
+                            ticks: { maxRotation: 90, minRotation: 45 } 
+                        },
+                        y: { 
+                            stacked: true, 
+                            beginAtZero: true,
+                            title: { display: true, text: 'Cantidad de Votantes' }
+                        }
                     },
                     plugins: {
                         tooltip: {
@@ -569,8 +605,8 @@ function cargarGraficoBicolor() {
                                     const pct = meta > 0 ? ((logro / meta) * 100).toFixed(1) : 0;
                                     
                                     if (context.datasetIndex === 1) {
-                                        const faltante = meta - logro;
-                                        return `Falta: ${faltante} (${(100 - pct).toFixed(1)}%)`;
+                                        const falta = meta - logro;
+                                        return `Falta: ${falta} (${(100 - pct).toFixed(1)}%)`;
                                     }
                                     return `Logrado: ${logro} (${pct}% de ${meta})`;
                                 }
