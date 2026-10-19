@@ -2,7 +2,102 @@
 let currentToken = null;
 let currentUser = null;
 let API_URL = 'https://script.google.com/macros/s/AKfycbw.../exec'; // <--- VERIFICA QUE ESTA URL SEA LA TUYA
+// --- LÓGICA DE LOGIN Y SESIÓN ---
 
+function switchTab(tabName) {
+    document.querySelectorAll('.login-form').forEach(f => f.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    
+    if(tabName === 'altos-cargos') document.getElementById('form-altos').classList.add('active');
+    else if(tabName === 'directores') document.getElementById('form-directores').classList.add('active');
+    else if(tabName === 'gerentes') document.getElementById('form-gerentes').classList.add('active');
+    else if(tabName === 'jefes-opt') document.getElementById('form-jefes-opt').classList.add('active');
+    
+    if(event && event.target) event.target.classList.add('active');
+}
+
+function handleLogin(event, tipo) {
+    event.preventDefault();
+    
+    let datos = { accion: 'login' };
+    
+    if (tipo === 'altos') {
+        datos.rol = document.getElementById('rol-alto').value;
+        datos.clave = document.getElementById('pass-alto').value;
+        datos.correo = 'altos@ipostel.gob.ve'; // Correo ficticio para altos cargos
+    } else if (tipo === 'director') {
+        datos.rol = 'DIRECTOR';
+        datos.estado = document.getElementById('rol-director').value;
+        datos.correo = document.getElementById('correo-director').value;
+        datos.clave = document.getElementById('pass-director').value;
+    } else if (tipo === 'gerente') {
+        datos.rol = 'GERENTE_ESTADO';
+        datos.estado = document.getElementById('estado-gerente').value;
+        datos.clave = document.getElementById('pass-gerente').value;
+    } else if (tipo === 'opt') {
+        datos.rol = 'JEFE_OPT';
+        datos.estado = document.getElementById('opt-seleccion').value;
+        datos.clave = document.getElementById('pass-opt').value;
+    }
+    
+    if (!datos.clave) {
+        alert("Por favor, ingrese su clave.");
+        return;
+    }
+
+    // Enviar al backend
+    enviarAScript(datos, function(res) {
+        if (res.ok) {
+            currentToken = res.token;
+            currentUser = res.usuario;
+            
+            // Si requiere cambio de contraseña
+            if (res.requiereCambio) {
+                document.getElementById('login-screen').classList.remove('active');
+                document.getElementById('change-pass-screen').classList.add('active');
+                return;
+            }
+
+            entrarAlDashboard();
+        } else {
+            alert("Error: " + res.error);
+        }
+    });
+}
+
+function handleChangePass(event) {
+    event.preventDefault();
+    const newPass = document.getElementById('new-pass').value;
+    
+    enviarAScript({ accion: 'cambiarClave', token: currentToken, nuevaClave: newPass }, function(res) {
+        if (res.ok) {
+            alert("Contraseña actualizada correctamente.");
+            entrarAlDashboard();
+        } else {
+            alert("Error al cambiar contraseña: " + res.error);
+        }
+    });
+}
+
+function entrarAlDashboard() {
+    document.getElementById('login-screen').classList.remove('active');
+    document.getElementById('change-pass-screen').classList.remove('active');
+    document.getElementById('dashboard-screen').classList.add('active');
+    
+    if(document.getElementById('user-name-display')) {
+        document.getElementById('user-name-display').textContent = (currentUser.nombre || currentUser.rol) + ' | ' + (currentUser.estado || 'Nacional');
+    }
+    
+    // Cargar gráficos y datos
+    cargarDashboard();
+}
+
+function logout() {
+    currentToken = null;
+    currentUser = null;
+    document.getElementById('dashboard-screen').classList.remove('active');
+    document.getElementById('login-screen').classList.add('active');
+}
 let chartEstados = null;
 let chartDirecciones = null;
 let chartHoras = null;
