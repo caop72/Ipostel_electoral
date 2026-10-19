@@ -544,15 +544,17 @@ function cargarGraficoBicolor() {
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'bottom';
 
+                    // El dataset 1 es la barra apilada completa (Verde + Rojo)
                     const metaData = chart.getDatasetMeta(1);
                     
                     metaData.data.forEach((barra, index) => {
                         const metaTotal = metas[index];
                         const logroTotal = logros[index];
+                        // Calculamos el porcentaje exacto
                         const pct = metaTotal > 0 ? ((logroTotal / metaTotal) * 100).toFixed(1) : 0;
                         
                         ctx.fillStyle = '#000';
-                        // SOLO EL PORCENTAJE
+                        // FORZAMOS A QUE SOLO DIGA EL PORCENTAJE
                         ctx.fillText(`${pct}%`, barra.x, barra.y - 5);
                     });
                     ctx.restore();
@@ -604,7 +606,7 @@ function cargarGraficoBicolor() {
                 plugins: [pluginTextos]
             });
 
-            // --- 2. GRÁFICO DE TORTA GLOBAL (Se mantiene con cantidades y %) ---
+            // --- 2. GRÁFICO DE TORTA GLOBAL ---
             const totalMetaGlobal = metas.reduce((a, b) => a + b, 0);
             const totalLogroGlobal = logros.reduce((a, b) => a + b, 0);
             const faltanteGlobal = Math.max(0, totalMetaGlobal - totalLogroGlobal);
@@ -634,7 +636,6 @@ function cargarGraficoBicolor() {
                                 label: function(context) {
                                     const val = context.raw;
                                     const pct = ((val / totalMetaGlobal) * 100).toFixed(1);
-                                    // Aquí se mantiene la cantidad y el porcentaje
                                     return `${context.label}: ${val} (${pct}%)`;
                                 }
                             }
