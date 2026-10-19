@@ -553,9 +553,12 @@ function cargarGraficoBicolor() {
                         const logroTotal = logros[index];
                         const pct = metaTotal > 0 ? ((logroTotal / metaTotal) * 100).toFixed(1) : 0;
                         
-                     ctx.fillStyle = '#000';
-                        // Mostramos: Logrado de Meta (Porcentaje)
-                        ctx.fillText(`${logroTotal} de ${metaTotal} (${pct}%)`, barra.x, barra.y - 5);
+                        ctx.fillStyle = '#000';
+                        ctx.fillText(`${logroTotal} (${pct}%)`, barra.x, barra.y - 16);
+                        ctx.font = 'normal 10px Arial';
+                        ctx.fillStyle = '#666';
+                        ctx.fillText(`Meta: ${metaTotal}`, barra.x, barra.y - 4);
+                        ctx.font = 'bold 11px Arial'; // Restauramos la fuente
                     });
                     ctx.restore();
                 }
