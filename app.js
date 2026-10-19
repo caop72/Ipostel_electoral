@@ -168,6 +168,8 @@ function cargarDashboard() {
         }
     });
     updateDashboardView();
+        // Añadir esta línea al final de cargarDashboard
+    cargarGraficoBicolor();
 }
 
 function cargarPorVerificar() {
