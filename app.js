@@ -529,31 +529,32 @@ function cargarGraficoBicolor() {
             const logros = estados.map(e => res.data.votosPorEstado[e] || 0);
             const faltantes = estados.map((e, i) => Math.max(0, metas[i] - logros[i]));
 
-            // --- 1. GRÁFICO DE BARRAS CON TEXTOS FIJOS ---
+            // --- 1. GRÁFICO DE BARRAS ---
             const canvas1 = document.getElementById('chartBicolorEstados');
             const ctx1 = canvas1.getContext('2d');
 
             if (window.chartBicolor) window.chartBicolor.destroy();
             
-            // Plugin para dibujar texto sobre las barras
+            // Plugin para dibujar texto sobre las barras (se registra globalmente para que funcione)
             const pluginTextos = {
                 id: 'textosSobreBarras',
                 afterDatasetsDraw(chart) {
                     const { ctx } = chart;
                     ctx.save();
-                    ctx.font = 'bold 10px Arial';
+                    ctx.font = 'bold 11px Arial';
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'bottom';
 
-                    const meta = chart.getDatasetMeta(1); // El dataset rojo (Meta total)
+                    // El dataset 1 es el rojo (la suma total de la barra)
+                    const metaData = chart.getDatasetMeta(1);
                     
-                    meta.data.forEach((barra, index) => {
+                    metaData.data.forEach((barra, index) => {
                         const metaTotal = metas[index];
                         const logroTotal = logros[index];
                         const pct = metaTotal > 0 ? ((logroTotal / metaTotal) * 100).toFixed(1) : 0;
                         
-                        // Escribir "Logrado (Pct%)" arriba de la barra total
                         ctx.fillStyle = '#000';
+                        // Pintamos "Logrado (Porcentaje)" justo arriba de la barra
                         ctx.fillText(`${logroTotal} (${pct}%)`, barra.x, barra.y - 5);
                     });
                     ctx.restore();
@@ -568,13 +569,13 @@ function cargarGraficoBicolor() {
                         {
                             label: 'Votos (Logrado)',
                             data: logros,
-                            backgroundColor: '#28a745', // Verde
+                            backgroundColor: '#28a745',
                             borderWidth: 0
                         },
                         {
                             label: 'Faltante (Meta)',
                             data: faltantes,
-                            backgroundColor: '#dc3545', // Rojo
+                            backgroundColor: '#dc3545',
                             borderWidth: 0
                         }
                     ]
@@ -582,7 +583,7 @@ function cargarGraficoBicolor() {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    layout: { padding: { top: 20 } }, // Espacio para el texto
+                    layout: { padding: { top: 25 } }, // Espacio para el texto
                     scales: {
                         x: { stacked: true, ticks: { maxRotation: 90, minRotation: 45 } },
                         y: { stacked: true, beginAtZero: true }
@@ -599,16 +600,6 @@ function cargarGraficoBicolor() {
                                     return `Falta: ${meta - logro} (${(100 - pct).toFixed(1)}%)`;
                                 }
                             }
-                        },
-                        legend: {
-                            labels: {
-                                generateLabels: function() {
-                                    return [
-                                        { text: 'Votos (Logrado)', fillStyle: '#28a745', strokeStyle: '#28a745' },
-                                        { text: 'Faltante (Meta)', fillStyle: '#dc3545', strokeStyle: '#dc3545' }
-                                    ];
-                                }
-                            }
                         }
                     }
                 },
@@ -616,7 +607,6 @@ function cargarGraficoBicolor() {
             });
 
             // --- 2. GRÁFICO DE TORTA GLOBAL ---
-            // Sumamos todos los votos y todas las metas
             const totalMetaGlobal = metas.reduce((a, b) => a + b, 0);
             const totalLogroGlobal = logros.reduce((a, b) => a + b, 0);
             const faltanteGlobal = Math.max(0, totalMetaGlobal - totalLogroGlobal);
@@ -627,7 +617,7 @@ function cargarGraficoBicolor() {
             if (window.chartTorta) window.chartTorta.destroy();
 
             window.chartTorta = new Chart(ctx2, {
-                type: 'doughnut', // Gráfico de Dona
+                type: 'doughnut',
                 data: {
                     labels: ['Logrado', 'Faltante'],
                     datasets: [{
