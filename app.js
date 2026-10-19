@@ -517,3 +517,79 @@ function cerrarModal(idModal) {
     const modal = document.getElementById(idModal);
     if (modal) modal.remove();
 }
+// --- FUNCIÓN PARA DIBUJAR EL GRÁFICO BICOLOR ---
+function cargarGraficoBicolor() {
+    enviarAScript({ accion: 'obtenerEstadisticasBicolor', token: currentToken }, function(res) {
+        if (res.ok) {
+            document.getElementById('bicolor-container').style.display = 'block';
+            
+            const estados = Object.keys(res.data.padronPorEstado).sort();
+            
+            // Datos para las barras
+            const metas = estados.map(e => res.data.padronPorEstado[e]);
+            const logros = estados.map(e => res.data.votosPorEstado[e] || 0);
+            
+            // Porcentajes y cantidades para mostrar en las etiquetas (tooltips)
+            const etiquetasInfo = estados.map(e => {
+                const meta = res.data.padronPorEstado[e];
+                const logro = res.data.votosPorEstado[e] || 0;
+                const pct = meta > 0 ? ((logro / meta) * 100).toFixed(1) : 0;
+                return `Logrado: ${logro} (${pct}%) | Meta: ${meta}`;
+            });
+
+            const canvas = document.getElementById('chartBicolorEstados');
+            const ctx = canvas.getContext('2d');
+
+            if (window.chartBicolor) window.chartBicolor.destroy();
+            
+            window.chartBicolor = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: estados,
+                    datasets: [
+                        {
+                            label: 'Logrado (Votos)',
+                            data: logros,
+                            backgroundColor: '#28a745', // Verde
+                            borderWidth: 0
+                        },
+                        {
+                            label: 'Meta (Padrón)',
+                            data: estados.map((e, i) => metas[i] - logros[i]), // Solo la diferencia para que quede apilado
+                            backgroundColor: '#dc3545', // Rojo
+                            borderWidth: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { stacked: true, ticks: { maxRotation: 90, minRotation: 45 } },
+                        y: { stacked: true, beginAtZero: true }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    if (context.datasetIndex === 1) return null; // Ocultar la barra roja en el tooltip
+                                    return etiquetasInfo[context.dataIndex]; // Mostrar texto personalizado
+                                }
+                            }
+                        },
+                        legend: {
+                            labels: {
+                                generateLabels: function(chart) {
+                                    return [
+                                        { text: 'Votos (Logrado)', fillStyle: '#28a745', strokeStyle: '#28a745' },
+                                        { text: 'Faltante (Meta)', fillStyle: '#dc3545', strokeStyle: '#dc3545' }
+                                    ];
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    });
+}
